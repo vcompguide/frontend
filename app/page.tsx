@@ -37,51 +37,58 @@ interface Preview {
 }
 function Preview({ imagePath, targetSite, text = "" }: Preview) {
 
-
+  const style = { '--bg-image': `url('${imagePath}')`};
   let placeHolder = "";
   if (imagePath === "")
     placeHolder = "placeholder: there are no image"
-  return <Link href={targetSite} className="flex h-full w-full bg-transparent rounded-2xl content-center justify-center items-center relative">
-    <img src = {imagePath} alt = "" className="w-full h-full object-cover bg-harvestgold-200 rounded-2xl outline-transparent"/>
-    <div className="flex content-center justify-center items-center w-full h-full hover:text-white transition hover:backdrop-blur-sm bg-transparent text-2xl hover:text-2xl absolute inset-0 font-[Inter] rounded-2xl outline-transparent" >
+  return <Link href={targetSite} className="flex h-full w-full bg-transparent rounded-2xl content-center justify-center items-center relative overflow-hidden bg-contain bg-no-repeat" style={{backgroundImage: `url(${imagePath})`}}>
+    <div className={`flex content-center justify-center items-center w-full h-full hover:text-white transition hover:backdrop-blur-sm text-2xl hover:text-2xl absolute inset-0 font-[Inter] text-wrap  opacity-50 bg-transparent`} >
       {text}
 
     </div>
   </Link>
 }
+
 export default function Page() {
   var mainPageElement =
-    <div className="flex flex-row flex-wrap items-center justify-center bg-cream-100">
-      <div className="flex flex-row w-full m-5 mb-20 bg-transparent rounded justify-center gap-10 px-5 h-30 items-center">
-        <div className="flex-auto bg-transparent w-3/10 justify-start text-center items-center" >
-          <div className="flex bg-transparent items-center justify-start p-4 font-[Inter]">
-            Homepage
-
-          </div>
-        </div>
-        <div className="flex-auto bg-transparent w-3/10 justify-start text-center items-center" >
-          <div className="flex bg-transparent items-center justify-start p-4 font-[Inter]">
-            VCOMPGUIDE
-
-          </div>
-        </div>
-        <div className="flex-auto font-[Inter] bg-cerulean-100 rounded-full text-center h-1/2 w-1/10 hover:bg-cerulean-200 hover:text-gray-800 content-center transition text-oxford-900">
+    <div className="flex flex-row flex-wrap items-center justify-center bg-cream-100 relative">
+      <div className="absolute top-0 right-0 flex flex-row m-5 mb-20 bg-transparent rounded justify-center gap-10 px-5 h-30 items-center z-10 w-[1/2]"> 
+        {/* The top bar */}
+        <Button className="flex-auto font-[Inter] bg-cerulean-100  text-center hover:bg-cerulean-50 hover:text-gray-800 content-center transition text-oxford-900">
           Features
-        </div>
-        <div className="flex-auto font-[Inter] bg-cerulean-100 rounded-full text-center h-1/2 w-1/10 hover:bg-cerulean-200 hover:text-gray-800 content-center transition text-oxford-900">
+        </Button>
+        <Button className="flex-auto font-[Inter] bg-cerulean-100 text-center  hover:bg-cerulean-50 hover:text-gray-800 content-center transition text-oxford-900">
           Account
-        </div>
+        </Button>
       </div>
-      <div className=" flex flex-col gap-10 w-3/5 items-center justify-center">
+      <div className="flex flex-col w-full h-[100vh] bg-linear-to-b from-blue-100 from-75% to-cream-100 to-100%">
+        {/* The top front */}
+          <div className="h-screen content-center text-center gap">
+            A demonstration of how five vibe coders can create a webpage in just 2 months
+          <br/>
+            (We are finding bugs in the UI. I don't know what I am cooking)
+            <br/>
+          <div className="flex m-10 gap-5 content-center text-center bg-transparent justify-center ">
 
-        <div className="flex flex-row h-60 w-full bg-harvestgold-200 rounded-2xl">
+            <Button className="">
+              See our product
+            </Button>
+
+            <Button> Learn more</Button>
+          </div>
+
+          </div>
+      </div>
+      <div className=" flex flex-col gap-10 w-3/5 items-center justify-center h-[100vh]">
+
+        <div className="flex flex-row h-60 w-full  rounded-2xl">
           <Preview imagePath="" targetSite="navigation" text="Navigation"/>
         </div>
         <div className="flex flex-row w-full h-60 justify-between p-4 gap-10">
 
-          <Preview imagePath="" targetSite="" text="Placeholder"/>
-          <Preview imagePath="" targetSite="" text="Placeholder"/>
-          <Preview imagePath="" targetSite="" text="Placeholder"/>
+          <Preview imagePath="sample.png" targetSite="" text="IDK"/>
+          <Preview imagePath="" targetSite="" text="IDK"/>
+          <Preview imagePath="" targetSite="" text="IDK"/>
 
         </div>
       </div>
