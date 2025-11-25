@@ -40,7 +40,6 @@ function MarkerSetter({ setDisplay, setPosition }: {
 
 
 function DisplayMarker({displayed, position}:{displayed: boolean, position: LatLng}) {
-  let returnComponent;
   if (displayed) {
     return <Marker position={position}/>
   }
@@ -48,6 +47,10 @@ function DisplayMarker({displayed, position}:{displayed: boolean, position: LatL
   {
     return null
   }
+}
+
+function locateOnLoad() {
+
 }
 export default function LeafletMap() {
 
@@ -65,9 +68,9 @@ export default function LeafletMap() {
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        <Marker position={[51.505, -0.09]}>
+        {/* <Marker position={[51.505, -0.09]}>
           <Popup>Hello world</Popup>
-        </Marker>
+        </Marker> */}
         <MarkerSetter setDisplay={setHighlighted} setPosition={setPosition}/>
         <DisplayMarker displayed = {isHighlighted} position = {highlightPosition}/>
       </MapContainer>
