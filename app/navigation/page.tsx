@@ -8,8 +8,13 @@ const LeafletMap = dynamic(() => import("./map"), {
 
 export default function Page() {
   return (
-    <div className="w-full h-screen">
-      <LeafletMap />
+    <div className="relative w-full h-screen">
+      <div className="absolute top-10 left-10 z-10">
+        assl;kfj
+      </div>
+      <div className="w-full h-screen">
+        <LeafletMap />
+      </div>
     </div>
   );
 }

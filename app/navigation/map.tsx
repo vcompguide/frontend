@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMapEvent, useM
 import L, { LatLng, Point, setOptions } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -72,7 +72,31 @@ export default function LeafletMap() {
   const [isHighlighted, setHighlighted] = useState<boolean>(false)
   const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0))
 
+  // const mapContainerRef = useRef<HTMLDivElement>(null);
+  // const mapInstanceRef = useRef<L.Map | null>(null);
 
+  // useEffect(() => {
+  //   if (mapInstanceRef.current) return; // Prevent double init
+  //   if (!mapContainerRef.current) return;
+
+  //   // Initialize Map
+  //   mapInstanceRef.current = L.map(mapContainerRef.current).setView([51.505, -0.09], 13);
+
+  //   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  //     attribution: '© OpenStreetMap contributors',
+  //   }).addTo(mapInstanceRef.current);
+
+  
+  //   // --- THE CRITICAL FIX FOR HOT RELOAD ---
+  //   return () => {
+  //     if (mapInstanceRef.current) {
+  //       mapInstanceRef.current.remove(); // This fixes "getPane() is undefined"
+  //       mapInstanceRef.current = null;
+  //     }
+  //   };
+  // }, []);
+
+  // return <div ref={mapContainerRef} className="w-full h-full" />;
   return (
     <div style={{ width: "100%", height: "100%" }}>
       <MapContainer
