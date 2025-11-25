@@ -1,10 +1,10 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMapEvent } from "react-leaflet";
-import L, { LatLng, Point } from "leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMapEvent, useMap } from "react-leaflet";
+import L, { LatLng, Point, setOptions } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -34,6 +34,9 @@ function MarkerSetter({ setDisplay, setPosition }: {
       setDisplay(true)
 
     },
+    locationfound(e) {
+      
+    }
   })
   return null
 }
@@ -49,13 +52,25 @@ function DisplayMarker({displayed, position}:{displayed: boolean, position: LatL
   }
 }
 
-function locateOnLoad() {
-
+function LocateUserOnLoad({locationSetter} : {
+  locationSetter: (LatLng: LatLng) => void;
+}) {
+  const map = useMapEvents({
+      locationfound(e) {
+        map.flyTo(e.latlng, map.getZoom())
+        locationSetter(e.latlng)
+      }
+  })
+  useEffect(() => {
+    map.locate()
+  })
+  return null
 }
 export default function LeafletMap() {
 
   const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0))
   const [isHighlighted, setHighlighted] = useState<boolean>(false)
+  const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0))
 
 
   return (
@@ -71,8 +86,12 @@ export default function LeafletMap() {
         {/* <Marker position={[51.505, -0.09]}>
           <Popup>Hello world</Popup>
         </Marker> */}
+        <LocateUserOnLoad locationSetter = {setUserLocation}/>
         <MarkerSetter setDisplay={setHighlighted} setPosition={setPosition}/>
         <DisplayMarker displayed = {isHighlighted} position = {highlightPosition}/>
+        <Marker position={userLocation}>
+          <Popup>You are currently here</Popup>
+        </Marker>
       </MapContainer>
     </div>
   );
