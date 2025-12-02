@@ -14,7 +14,7 @@ interface Posts {
   content: string
 };
 
-const lorem = new LoremIpsum ({
+const lorem = new LoremIpsum({
   sentencesPerParagraph: {
     max: 8,
     min: 4
@@ -74,6 +74,11 @@ export default function Page() {
         <Button className="flex-auto font-[Inter] bg-cerulean-100 text-center  hover:bg-cerulean-50 hover:text-gray-800 content-center transition text-oxford-900">
           Account
         </Button>
+        <Link href = "/planner">
+        <Button className="flex-auto font-[Inter] bg-cerulean-100 text-center  hover:bg-cerulean-50 hover:text-gray-800 content-center transition text-oxford-900">
+          Planner
+          </Button>
+        </Link>
       </div>
       <div className="flex flex-col h-screen w-full bg-linear-to-b from-blue-100 from-80% to-cream-100 to-100% items-center">
         {/* The top front */}
@@ -119,6 +124,6 @@ export default function Page() {
 
         </div>
       </div>
-    </div>
+    </div >
   return mainPageElement
 }
