@@ -1,11 +1,11 @@
-import { uuidv7 } from "uuidv7"
-import CardPreview from "./CardPreview"
 import { useState } from "react"
-import { CardInfo } from "./CardInfo"
-import { ReactSortable } from "react-sortablejs"
-import { getContrastColor } from "@/src/utils/getConstrastColors"
-import { Button } from "@/components/ui/button"
 import { FaCirclePlus } from "react-icons/fa6"
+import { ReactSortable } from "react-sortablejs"
+import { uuidv7 } from "uuidv7"
+import { Button } from "@/components/ui/button"
+import { getContrastColor } from "@/src/utils/getConstrastColors"
+import { CardInfo } from "./CardInfo"
+import CardPreview from "./CardPreview"
 export class CardGroupInfo {
     id: string
     color?: string
@@ -21,15 +21,15 @@ export default function CardGroup({ info }: { info: CardGroupInfo }) {
         new CardInfo().setTitle("Title1"),
     ])
 
-    let addCard = () => {
-        let newContent = [...content]
+    var addCard = () => {
+        var newContent = [...content]
         newContent.push(new CardInfo().setTitle("New Card"));
         setContent(newContent)
     }
 
-    let removeCard = (uuid: string) => {
-        let newContent = [...content]
-        let index = newContent.findIndex((value, index, newContent) => {
+    var removeCard = (uuid: string) => {
+        var newContent = [...content]
+        var index = newContent.findIndex((value) => {
             return (value.id === uuid);
         })
         console.log(newContent)
@@ -37,7 +37,10 @@ export default function CardGroup({ info }: { info: CardGroupInfo }) {
         console.log(newContent)
         setContent(newContent)
     }
-    return <div className={`bg-[${info.color}] rounded p-1 flex flex-col align-middle`}>
+
+    console.log(info.color)
+    return <div className={`rounded p-1 flex flex-col align-middle`} style= {{ backgroundColor: info.color
+}}>
         <div className={`flex flex-row justify-center bg-transparent m-1 rounded font-bold font-[Inter] ${getContrastColor(info.color)} grow-0`}>
             {info.title}
         </div>
@@ -46,9 +49,9 @@ export default function CardGroup({ info }: { info: CardGroupInfo }) {
             pull: true,
             put: true
         }}>
-            {content.map((value, index, array) => <CardPreview key={value.id} cardData={value} removeCall={removeCard} />)}
+            {content.map((value) => <CardPreview key={value.id} cardData={value} removeCall={removeCard} />)}
         </ReactSortable>
-        <Button className="bg-cream-50 h-5 m-2 p-2 hover:bg-cream-50 hover:brightness-90 active:brightness-75" onClick={addCard}>
+        <Button className="bg-cream-50 h-5 m-2 p-2 hover:bg-cream-50 hover:brightness-90 active:brightness-75" onMouseDown={addCard}>
             <FaCirclePlus className= "fill-black cursor-pointer"/>
         </Button>
     </div>
