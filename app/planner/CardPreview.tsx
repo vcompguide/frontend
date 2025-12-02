@@ -1,3 +1,4 @@
+import type { PointerEvent } from "react";
 import { FaTrashAlt } from "react-icons/fa";
 import type { CardInfo } from "./CardInfo";
 export default function CardPreview({
@@ -5,7 +6,7 @@ export default function CardPreview({
 	removeCall,
 }: {
 	cardData: CardInfo;
-	removeCall: (uuid: string) => void;
+	removeCall: (event: PointerEvent<HTMLButtonElement>, uuid: string) => void;
 }) {
 	return (
 		<div
@@ -14,7 +15,7 @@ export default function CardPreview({
 			<button
 				type="button"
 				className="absolute flex p-0.75 items-center  transition opacity-25 hover:opacity-75 justify-center right-1 top-1 bg-transparent size-4 rounded-full cursor-auto  "
-				onMouseDown={() => removeCall(cardData.id)}
+				onPointerDown={(event) => removeCall(event, cardData.id)}
 			>
 				<FaTrashAlt className="size-3" />
 			</button>

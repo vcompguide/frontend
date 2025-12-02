@@ -1,8 +1,7 @@
-import { Newsreader } from "next/font/google";
-import Tag, { tagEqual } from "./tag";
-import { CardAction } from "@/components/ui/card";
+import type { LatLng } from "leaflet";
 import { uuidv7 } from "uuidv7";
-import { LatLng } from "leaflet";
+
+import Tag, { tagEqual } from "./tag";
 export class CardInfo {
 	id: string;
 	title?: string;
