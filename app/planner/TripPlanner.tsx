@@ -44,6 +44,8 @@ export default function TripPlanner() {
 				animation={150}
 				filter=".no-drag"
 				preventOnFilter={false}
+				forceFallback={true}
+				dragClass="cursor-grabbing"
 				group={{
 					name: "Kanban",
 					pull: ["Kanban"],

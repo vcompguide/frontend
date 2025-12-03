@@ -179,3 +179,11 @@
   --color-oxford-900: oklch(0.253 0.096 258.56);
   --color-oxford-950: oklch(0.191 0.071 258.13);
 }
+
+.cursor-grabbing {
+  cursor: grabbing !important;
+}
+
+body.cursor-grabbing * {
+  cursor: grabbing !important;
+}

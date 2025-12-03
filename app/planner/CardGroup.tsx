@@ -6,7 +6,6 @@ import { uuidv7 } from "uuidv7";
 import { getContrastColor } from "@/src/utils/getConstrastColors";
 import { CardInfo } from "./CardInfo";
 import CardPreview from "./CardPreview";
-import Tag from "./tag";
 export class CardGroupInfo {
 	id: string;
 	color: string;
@@ -55,28 +54,30 @@ export default function CardGroup({
 	console.log(info.color);
 	return (
 		<div
-			className={`rounded p-1 flex flex-col align-middle w-fit h-fit max-h-full py-0 outline-2 overflow-scroll shrink-0`}
+			className={`rounded p-1 flex flex-col align-middle w-fit h-fit max-h-full py-0 outline-2 overflow-scroll shrink-0 hover:cursor-grab active:cursor-grabbing focus:cursor-grabbing pt-5 rounded-t-2xl`}
 			style={{
 				backgroundColor: `${info.color}BE`,
 				outlineColor: `${info.color}FF`,
 			}}
 		>
-				<input
-					className={`w-50 flex flex-row justify-center bg-transparent m-1 rounded font-bold font-[Inter]  text-center max-w-full ${getContrastColor(info.color)} grow-0 border-0 focus:outline-2`}
-					value={title}
-					onBlur={() => {
-						onUnFocus();
-					}}
-					onChange={(e) => {
-						setTitle(e.target.value);
-					}}
-				/>
+			<input
+				className={`w-50 flex flex-row justify-center bg-transparent m-1 rounded font-bold font-[Inter]  text-center max-w-full ${getContrastColor(info.color)} grow-0 border-0 focus:outline-2`}
+				value={title}
+				onBlur={() => {
+					onUnFocus();
+				}}
+				onChange={(e) => {
+					setTitle(e.target.value);
+				}}
+			/>
 			<div className="flex flex-col overflow-y-auto">
 				<ReactSortable
 					list={content}
 					setList={setContent}
 					className="flex flex-col grow-0 shrink-0"
 					animation={150}
+					forceFallback={true}
+					dragClass="sortable-grabbing"
 					group={{
 						name: "CardHolder",
 						pull: ["CardHolder"],
