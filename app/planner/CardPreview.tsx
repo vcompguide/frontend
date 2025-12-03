@@ -14,7 +14,7 @@ export default function CardPreview({
 		>
 			<button
 				type="button"
-				className="absolute flex p-0.75 items-center  transition opacity-25 hover:opacity-75 justify-center right-1 top-1 bg-transparent size-4 rounded-full cursor-auto"
+				className="absolute flex p-0.75 items-center  transition opacity-25 hover:opacity-75 justify-center right-1 top-1 bg-transparent size-4 rounded-full cursor-auto no-drag"
 				onPointerDown={(event) => removeCall(event, cardData.id)}
 			>
 				<FaTrashAlt className="size-3" />

@@ -61,7 +61,7 @@ export default function CardGroup({
 			}}
 		>
 			<input
-				className={`w-50 flex flex-row justify-center bg-transparent m-1 rounded font-bold font-[Inter]  text-center max-w-full ${getContrastColor(info.color)} grow-0 border-0 focus:outline-2`}
+				className={`w-50 flex flex-row justify-center bg-transparent m-1 rounded font-bold font-[Inter]  text-center max-w-full ${getContrastColor(info.color)} grow-0 border-0 focus:outline-2 no-drag`}
 				value={title}
 				onBlur={() => {
 					onUnFocus();
@@ -78,6 +78,7 @@ export default function CardGroup({
 					animation={150}
 					forceFallback={true}
 					dragClass="sortable-grabbing"
+					filter=".no-drag"
 					group={{
 						name: "CardHolder",
 						pull: ["CardHolder"],
