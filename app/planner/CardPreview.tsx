@@ -1,6 +1,5 @@
 import type { PointerEvent } from "react";
 import { FaTrashAlt } from "react-icons/fa";
-import { getContrastColor } from "@/src/utils/getConstrastColors";
 import type { CardInfo } from "./CardInfo";
 export default function CardPreview({
 	cardData,
@@ -11,11 +10,11 @@ export default function CardPreview({
 }) {
 	return (
 		<div
-			className={`relative bg-cream-200 flex outline-1 flex-col w-50 rounded font-[Inter] p-1 m-1 gap-1   hover:outline-2 cursor-grab active:cursor-grabbing`}
+			className={`relative bg-cream-200 flex outline-1 flex-col w-50 rounded font-[Inter] p-1 pl-2 m-1 gap-1   hover:outline-2 cursor-grab active:cursor-grabbing`}
 		>
 			<button
 				type="button"
-				className="absolute flex p-0.75 items-center  transition opacity-25 hover:opacity-75 justify-center right-1 top-1 bg-transparent size-4 rounded-full cursor-auto  "
+				className="absolute flex p-0.75 items-center  transition opacity-25 hover:opacity-75 justify-center right-1 top-1 bg-transparent size-4 rounded-full cursor-auto"
 				onPointerDown={(event) => removeCall(event, cardData.id)}
 			>
 				<FaTrashAlt className="size-3" />
@@ -25,12 +24,12 @@ export default function CardPreview({
 				{cardData.content}
 			</div>
 			<div
-				className={`flex flex-row overflow-auto gap-3 p-1 scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-sky-100 `}
+				className={`flex flex-row overflow-auto gap-3 p-1 scrollbar-none  `}
 			>
 				{cardData.tagsList?.map((value) => {
 					return (
 						<div
-							className="flex flex-row rounded-full items-center outline-1 text-[0.7rem] px-1 py-1 gap-0 content-center justify-end overflow-auto shrink-0 grow-0 font-bold brightness-90 hover:brightness-100 tracking-widest"
+							className="flex flex-row rounded-full items-center outline-1 text-[0.7rem] px-1 py-[0.5] gap-0 content-center justify-end overflow-auto shrink-0 grow-0 font-bold brightness-90 hover:brightness-100 tracking-widest"
 							style={{
 								backgroundColor: `${value.RGB}7F`,
 								outlineColor: `${value.RGB}FF`,
