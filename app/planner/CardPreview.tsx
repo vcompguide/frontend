@@ -1,5 +1,6 @@
 import type { PointerEvent } from "react";
 import { FaTrashAlt } from "react-icons/fa";
+import { getContrastColor } from "@/src/utils/getConstrastColors";
 import type { CardInfo } from "./CardInfo";
 export default function CardPreview({
 	cardData,
@@ -24,20 +25,22 @@ export default function CardPreview({
 				{cardData.content}
 			</div>
 			<div
-				className={`flex flex-row overflow-auto gap-1 p-1 scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-sky-100 `}
+				className={`flex flex-row overflow-auto gap-3 p-1 scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-sky-100 `}
 			>
 				{cardData.tagsList?.map((value) => {
 					return (
 						<div
-							className="flex flex-row rounded-full items-center text-[#4949497f] hover:text-[#000000FF] outline-1 text-[0.5rem] px-1 py-1 gap-0 content-center justify-end overflow-auto shrink-0 grow-0"
+							className="flex flex-row rounded-full items-center outline-1 text-[0.7rem] px-1 py-1 gap-0 content-center justify-end overflow-auto shrink-0 grow-0 font-bold brightness-90 hover:brightness-100 tracking-widest"
 							style={{
 								backgroundColor: `${value.RGB}7F`,
 								outlineColor: `${value.RGB}FF`,
+								color: value.RGB
+								
 							}}
 							key={value.id}
 						>
 							<div
-								className="rounded-full size-3"
+								className="rounded-full size-2"
 								style={{ backgroundColor: `${value.RGB}FF` }}
 							></div>
 							<div className="flex flex-row justify-center mx-1">

@@ -26,7 +26,7 @@ export default function Page() {
 						Planner
 					</div>
 
-					<div className="flex overflow-y-hidden ">
+					<div className="flex overflow-y-hidden grow ">
 						<TripPlanner />
 					</div>
 				</div>
