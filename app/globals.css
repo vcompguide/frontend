@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@plugin 'tailwind-scrollbar';
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -177,4 +178,27 @@
   --color-oxford-800: oklch(0.34 0.13 258.68);
   --color-oxford-900: oklch(0.253 0.096 258.56);
   --color-oxford-950: oklch(0.191 0.071 258.13);
+}
+
+.cursor-grabbing {
+  cursor: grabbing !important;
+}
+
+body.cursor-grabbing * {
+  cursor: grabbing !important;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-pop-in {
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
