@@ -1,10 +1,8 @@
 "use client";
 
-
 import { LoremIpsum } from "lorem-ipsum";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
 
 const lorem = new LoremIpsum({
 	sentencesPerParagraph: {
