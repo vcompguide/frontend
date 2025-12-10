@@ -72,7 +72,7 @@ export default function TripPlanner({
 		<>
 			<style>{styles}</style>
 
-			<div className="rounded bg-cream-300 flex h-full w-fit max-w-full  p-2">
+			<div className="rounded bg-transparent flex h-full w-fit max-w-full  p-2">
 				<div className="flex flex-row overflow-scroll scroll-smooth">
 					<ReactSortable
 						list={groupInfos}

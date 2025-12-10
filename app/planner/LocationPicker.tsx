@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
-import { FaMapMarkerAlt, FaSearch } from "react-icons/fa";
+import { FaLocationArrow, FaMapMarkerAlt, FaSearch } from "react-icons/fa";
 import {
 	MapContainer,
 	Marker,
@@ -51,6 +51,34 @@ function MapUpdater({ center }: { center: L.LatLngExpression | null }) {
 	}, [center, map]);
 	return null;
 }
+function LocateButton({ onLocationFound }: { onLocationFound: (lat: number, lng: number) => void }) {
+    const map = useMapEvents({
+        locationfound(e) {
+            // 1. Update the parent state so the red marker moves here
+            onLocationFound(e.latlng.lat, e.latlng.lng);
+            // 2. Fly the camera to the new location
+            map.flyTo(e.latlng, map.getZoom());
+        },
+    });
+
+    const handleClick = () => {
+        // triggers the 'locationfound' event above
+        map.locate();
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleClick}
+            // Position: absolute bottom-right, strictly inside the map container
+            // z-index: 1000 to sit above map tiles
+            className="absolute bottom-4 right-4 z-[1000] bg-white p-3 rounded-full shadow-xl border border-gray-200 hover:bg-gray-50 text-blue-600 transition-colors"
+            title="Locate Me"
+        >
+            <FaLocationArrow />
+        </button>
+    );
+}
 
 export default function LocationPicker({
 	currentLocation,
@@ -66,6 +94,7 @@ export default function LocationPicker({
 			? [currentLocation.lat, currentLocation.lng]
 			: [51.505, -0.09],
 	);
+
 
 	const [contextMenu, setContextMenu] = useState<{
 		x: number;
@@ -109,17 +138,19 @@ export default function LocationPicker({
 		setQuery(result.display_name);
 		setShowDropdown(false);
 	};
+	
+
 
 	return (
 		<div className="relative w-full h-full bg-gray-200">
 			{/* Search Bar Overlay */}
-			<div className="absolute top-4 left-4 right-4 z-1000 flex flex-col gap-1 max-w-md">
+			<div className="absolute top-4 left-4 right-4 z-1000 flex flex-col gap-1 max-w-md bg-white">
 				<form
 					onSubmit={handleManualSearch}
 					className="flex gap-2 w-full shadow-lg"
 				>
 					<input
-						className="grow px-4 py-2 rounded-l-md border-0 focus:ring-2 ring-blue-500 outline-none"
+						className="grow px-4 py-2 rounded-l-md border-0 focus:ring-2 ring-blue-500/50 outline-none"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search places..."
@@ -159,7 +190,9 @@ export default function LocationPicker({
 					<strong>Right-click</strong> map to set location manually.
 				</p>
 			</div>
-
+			{/* <div className = "absolute bottom-4 right-4 z-1000 bg-white/60 p-2 rounded-full size-10">
+			
+			</div> */}
 			{/* Context Menu Popup */}
 			{contextMenu && (
 				<div
@@ -219,6 +252,10 @@ export default function LocationPicker({
 						setShowDropdown(false);
 					}}
 				/>
+				<LocateButton onLocationFound={(lat, lng) => {
+                    onLocationSelect(lat, lng);
+                    setMapCenter([lat, lng]); // Optional: ensures MapUpdater syncs too
+                }} />
 
 				{currentLocation && (
 					<Marker

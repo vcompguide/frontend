@@ -91,7 +91,7 @@ export default function TripBuilder( {onCardClick} : {
     };
 
     return (
-        <div className="relative w-full h-full flex flex-col bg-gray-50 overflow-hidden">
+        <div className="relative w-full h-full flex flex-col bg-transparent overflow-hidden">
             
             {/* Toolbar */}
             <div className="absolute top-0 right-4 z-20 flex gap-2">
