@@ -11,10 +11,10 @@ import { useEffect, useState } from "react";
 import { FaMinus, FaPlus } from "react-icons/fa";
 import { uuidv7 } from "uuidv7";
 
-// L.Icon.Default.mergeOptions({
-//   iconUrl: icon.src,
-//   shadowUrl: iconShadow.src,
-// });
+L.Icon.Default.mergeOptions({
+  iconUrl: icon.src,
+  shadowUrl: iconShadow.src,
+});
 
 function MarkerSetter({ setDisplay, setPosition }: {
   setDisplay: (isDisplayed: boolean) => void;
@@ -95,7 +95,7 @@ export default function LeafletMap() {
   const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0));
   const [isHighlighted, setHighlighted] = useState<boolean>(false);
   const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
-
+  const [mapId] = useState(() => uuidv7())
   return (
     <div className="w-full h-full bg-[#1a1a1a]"> {/* Dark background to prevent flash */}
       <MapContainer
@@ -105,7 +105,7 @@ export default function LeafletMap() {
         className="w-full h-full outline-none relative"
         zoomControl={false} // We will build custom UI for this
         attributionControl={false}
-        key={uuidv7()}
+        key={mapId}
       >
         {/* Dark Mode Tiles */}
         <TileLayer

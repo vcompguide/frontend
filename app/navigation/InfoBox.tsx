@@ -59,7 +59,7 @@ export function LocationInfoBox({ location, onClose }: LocationInfoBoxProps) {
 						</button>
 						<button
 							type="button"
-							className="flex grow-1 bg-transparent border border-gray-600 hover:bg-white/10 text-white rounded-full h-10"
+							className="flex justify-center items-center grow-1 bg-transparent border border-gray-600 hover:bg-white/10 text-white rounded-full h-10"
 						>
 							<FaDirections className="mr-2" /> Directions
 						</button>
