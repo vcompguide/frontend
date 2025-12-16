@@ -26,7 +26,7 @@ export function UserMessage({ message }: { message: string }) {
 export function ChatBox() {
 	const [showDetail, setShowDetail] = useState<boolean>(false);
 	return (
-		<div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[380px]">
+		<div className={`absolute bottom-0 left-1/2 ${showDetail ? 'translate-y-0' : 'translate-y-1/2'} -translate-x-1/2 z-10 w-[380px] transition`}>
 			<div className="bg-[#1e1e1e]/95 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
 				{/* Chat Header */}
 				<button type = "button" className="flex justify-between items-center p-3 border-b border-white/5 cursor-pointer w-full"  onClick={() => {
@@ -41,7 +41,7 @@ export function ChatBox() {
 								Guide Assistant
 							</div>
 							<div className="text-[10px] text-emerald-400 flex items-center gap-1">
-								● Online • Active now
+								● Online • Active now 
 							</div>
 						</div>
 					</div>

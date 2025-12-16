@@ -17,6 +17,7 @@ import {
 	FaSearch,
 	FaTicketAlt,
 } from "react-icons/fa";
+
 import { IoMdClose } from "react-icons/io";
 import { LuLocateFixed, LuSend } from "react-icons/lu";
 import { MdDashboard, MdRestaurant } from "react-icons/md";
@@ -24,6 +25,7 @@ import { PiBankFill, PiParkFill } from "react-icons/pi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BotMessage, ChatBox, UserMessage } from "./chat";
+import { LocationDisplayInfo, LocationInfoBox } from "./InfoBox";
 
 // Dynamic import for the map
 const LeafletMap = dynamic(() => import("./map"), {
@@ -34,9 +36,16 @@ const LeafletMap = dynamic(() => import("./map"), {
 export default function Page() {
 	const [searchValue, setSearchValue] = useState<string>("");
 	const [activeTab, setActiveTab] = useState("Dashboard");
-
-	const [displayInfoPanel, setDisplayInfoPanel] = useState<boolean>(false);
-	const [displayChatPanel, setDisplayChatPanel] = useState<boolean>(false);
+	let mockLocation: LocationDisplayInfo = {
+		description: "Lorem Ipsum",
+		id: "mock",
+		name: "Musue",
+		imagePath: "",
+		gallery: []
+	}
+	const [selectedLocation, setSelectedLocation] =
+		useState<LocationDisplayInfo | null>(mockLocation);
+	
 	return (
 		<div className="flex flex-row w-full h-screen bg-[#0f1110] overflow-hidden font-sans text-gray-200">
 			{/* --- SIDEBAR --- */}
@@ -146,99 +155,11 @@ export default function Page() {
 				</div>
 
 				{/* 2. Right Detail Panel (The Louvre) */}
-				<div className="absolute top-24 right-6 w-[400px] z-10 flex flex-col gap-4 pointer-events-none">
-					{/* Card */}
-					<div className="pointer-events-auto bg-[#1e1e1e]/90 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-2xl text-white">
-						{/* Header Image Area */}
-						<div className="relative h-48 rounded-2xl overflow-hidden mb-4 bg-gray-700 group">
-							{/* Close Button */}
-							<button
-								type="button"
-								className="absolute top-3 right-3 size-8 bg-black/50 hover:bg-black/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition"
-							>
-								<IoMdClose />
-							</button>
-							{/* Fake Image Placeholder since we don't have the file */}
-							<img
-								src="https://images.unsplash.com/photo-1499856871940-a09627c6dcf6?q=80&w=2532&auto=format&fit=crop"
-								alt="Louvre"
-								className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-							/>
-							<div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
-								<div className="flex justify-between items-end">
-									<h2 className="text-xl font-bold">The Louvre Museum</h2>
-									<div className="flex items-center gap-1 text-xs bg-black/60 px-2 py-1 rounded-lg text-yellow-400">
-										★ 4.8
-									</div>
-								</div>
-							</div>
-						</div>
-
-						{/* Action Buttons */}
-						<div className="flex gap-3 mb-6">
-							<Button className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-full h-10">
-								<FaTicketAlt className="mr-2" /> Tickets
-							</Button>
-							<Button className="flex-1 bg-transparent border border-gray-600 hover:bg-white/10 text-white rounded-full h-10">
-								<FaDirections className="mr-2" /> Directions
-							</Button>
-						</div>
-
-						{/* Info Grid */}
-						<div className="grid grid-cols-2 gap-4 mb-6">
-							<div className="bg-white/5 p-3 rounded-2xl">
-								<p className="text-xs text-gray-400 mb-1">Open Today</p>
-								<p className="text-sm font-semibold">9:00 AM - 6:00 PM</p>
-							</div>
-							<div className="bg-white/5 p-3 rounded-2xl">
-								<p className="text-xs text-gray-400 mb-1">Distance</p>
-								<p className="text-sm font-semibold">2.4 km away</p>
-							</div>
-						</div>
-
-						{/* About */}
-						<div className="mb-4">
-							<h3 className="font-bold mb-2">About</h3>
-							<p className="text-xs text-gray-400 leading-relaxed">
-								The world's largest art museum and a historic monument in Paris,
-								France. A central landmark of the city, it is located on the
-								Right Bank of the Seine...{" "}
-								<span className="text-emerald-400 cursor-pointer">
-									Read more
-								</span>
-							</p>
-						</div>
-
-						{/* Gallery (Small preview) */}
-						<div>
-							<h3 className="font-bold mb-2">Gallery</h3>
-							<div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-								<div className="size-16 rounded-xl bg-gray-700 shrink-0 overflow-hidden">
-									{/* <Image
-										// src="https://images.unsplash.com/photo-1544264661-897c458d3436?w=200&h=200&fit=crop"
-										className="w-full h-full object-cover"
-										fill={true}
-									/> */}
-								</div>
-								<div className="size-16 rounded-xl bg-gray-700 shrink-0 overflow-hidden">
-									{/* <Image
-										src="https://images.unsplash.com/photo-1584918231269-80880315d18d?w=200&h=200&fit=crop"
-										className="w-full h-full object-cover"
-										fill={true}
-									/> */}
-								</div>
-								<div className="size-16 rounded-xl bg-gray-700 shrink-0 overflow-hidden">
-									{/* <Image
-										// src="https://images.unsplash.com/photo-1565060169194-1372605b0a68?w=200&h=200&fit=crop"
-										className="w-full h-full object-cover"
-										fill={true}
-									/> */}
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
+				{/* <LocationInfoBox/> */}
+				<LocationInfoBox
+					location={selectedLocation}
+					onClose={() => setSelectedLocation(null)}
+				/>
 				{/* 3. Center Suggested Challenge (Floating) */}
 				<div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 pointer-events-none">
 					{/* Positioned relatively near the map point in design */}
@@ -265,34 +186,7 @@ export default function Page() {
 				</div>
 
 				{/* 4. Bottom Center Chat Widget */}
-				<ChatBox/>
-				
-				{/* 5. Bottom Left Controls */}
-				<div className="absolute bottom-10 left-10 z-10 flex flex-col gap-4">
-					{/* Zoom Controls */}
-					<div className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow-lg border border-white/5">
-						<button
-							type="button"
-							className="p-3 hover:bg-white/10 text-white block border-b border-white/10"
-						>
-							<FaPlus size={12} />
-						</button>
-						<button
-							type="button"
-							className="p-3 hover:bg-white/10 text-white block"
-						>
-							<FaMinus size={12} />
-						</button>
-					</div>
-
-					{/* Location Control */}
-					<button
-						type="button"
-						className="bg-[#1e1e1e] p-3 rounded-xl hovesr:bg-white/10 text-white shadow-lg border border-white/5"
-					>
-						<LuLocateFixed size={20} />
-					</button>
-				</div>
+				<ChatBox />
 			</main>
 		</div>
 	);
