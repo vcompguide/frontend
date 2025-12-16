@@ -52,9 +52,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${robotoCondensed.variable} antialiased relative`}
+        className={`${geistSans.variable} ${geistMono.variable} ${robotoCondensed.variable} antialiased relative h-full`}
       >
         {/* <div className="relative flex flex-row z-1000 h-13 items-center justify-end gap-10 md:gap-5 bg-cerulean-300 pr-10 outline-2 outline-cerulean-200  w-full"> */}
           {/* <div className="flex flex-row items-center  gap-30"> */}

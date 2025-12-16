@@ -78,12 +78,12 @@ export default function Page() {
 				</div>
 			</div>
 			<div className=" flex flex-col gap-10 w-3/5 items-center justify-center h-screen">
-				<div className="flex flex-row h-60 w-full  rounded-2xl">
-					<Preview imagePath="" targetSite="navigation" text="Navigation" />
-				</div>
+				{/* <div className="flex flex-row h-60 w-full  rounded-2xl">
+					<Preview imagePath="Navigation_Preview.png" targetSite="navigation" text="Navigation" />
+				</div> */}
 				<div className="flex flex-row w-full h-60 justify-between p-4 gap-10">
 					<Preview imagePath="sample.png" targetSite="" text="IDK" />
-					<Preview imagePath="" targetSite="" text="IDK" />
+					<Preview imagePath="Navigation_Preview.png" targetSite="navigation" text="" />
 					<Preview imagePath="" targetSite="" text="IDK" />
 				</div>
 			</div>
