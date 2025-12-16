@@ -254,7 +254,7 @@ export default function LocationPicker({
 				/>
 				<LocateButton onLocationFound={(lat, lng) => {
                     onLocationSelect(lat, lng);
-                    setMapCenter([lat, lng]); // Optional: ensures MapUpdater syncs too
+                    setMapCenter([lat, lng]); // Optional: ensures MapUpdater syncs 
                 }} />
 
 				{currentLocation && (

@@ -71,7 +71,7 @@ export default function Page() {
 					(We are finding bugs in the UI. I don't know what I am cooking)
 					<br />
 					<div className="flex gap-5 content-center text-center bg-transparent justify-center">
-						<Button className="">See our product</Button>
+						<Link href = "/navigation" className="">See our product</Link>
 
 						<Button> Learn more</Button>
 					</div>

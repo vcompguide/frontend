@@ -1,120 +1,92 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMapEvent, useMap } from "react-leaflet";
-import L, { LatLng, Point, setOptions } from "leaflet";
+import L, { LatLng } from "leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { useEffect, useRef, useState } from "react";
-
+// Fix for default marker icons in Next.js
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useState } from "react";
+import { uuidv7 } from "uuidv7";
 
-
-
-L.Icon.Default.mergeOptions({
-  iconUrl: icon,
-  shadowUrl: iconShadow
-});
-
+// L.Icon.Default.mergeOptions({
+//   iconUrl: icon.src,
+//   shadowUrl: iconShadow.src,
+// });
 
 function MarkerSetter({ setDisplay, setPosition }: {
   setDisplay: (isDisplayed: boolean) => void;
   setPosition: (LatLng: LatLng) => void;
 }) {
-  const map = useMapEvents({
-    click(e) {
-      // console.log(e)
-      setDisplay(false)
+  useMapEvents({
+    click() {
+      setDisplay(false);
     },
-
     contextmenu(e) {
-      console.log(e)
-      setPosition(e.latlng)
-      setDisplay(true)
-
+      setPosition(e.latlng);
+      setDisplay(true);
     },
-    locationfound(e) {
-      
-    }
-  })
-  return null
+  });
+  return null;
 }
 
-
-function DisplayMarker({displayed, position}:{displayed: boolean, position: LatLng}) {
-  if (displayed) {
-    return <Marker position={position}/>
-  }
-  else 
-  {
-    return null
-  }
+function DisplayMarker({ displayed, position }: { displayed: boolean; position: LatLng }) {
+  return displayed ? <Marker position={position} /> : null;
 }
 
-function LocateUserOnLoad({locationSetter} : {
-  locationSetter: (LatLng: LatLng) => void;
-}) {
+function LocateUserOnLoad({ locationSetter }: { locationSetter: (LatLng: LatLng) => void }) {
   const map = useMapEvents({
-      locationfound(e) {
-        map.flyTo(e.latlng, map.getZoom())
-        locationSetter(e.latlng)
-      }
-  })
+    locationfound(e) {
+      map.flyTo(e.latlng, 14); // Zoom level 14 fits the city view better
+      locationSetter(e.latlng);
+    },
+  });
   useEffect(() => {
-    map.locate()
-  })
-  return null
+    map.locate();
+  }, [map]);
+  return null;
 }
+
+// Ensure the map resizes correctly
+function MapResizer() {
+  const map = useMapEvents({});
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [map]);
+  return null;
+}
+
 export default function LeafletMap() {
+  const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0));
+  const [isHighlighted, setHighlighted] = useState<boolean>(false);
+  const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
 
-  const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0))
-  const [isHighlighted, setHighlighted] = useState<boolean>(false)
-  const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0))
-
-  // const mapContainerRef = useRef<HTMLDivElement>(null);
-  // const mapInstanceRef = useRef<L.Map | null>(null);
-
-  // useEffect(() => {
-  //   if (mapInstanceRef.current) return; // Prevent double init
-  //   if (!mapContainerRef.current) return;
-
-  //   // Initialize Map
-  //   mapInstanceRef.current = L.map(mapContainerRef.current).setView([51.505, -0.09], 13);
-
-  //   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  //     attribution: '© OpenStreetMap contributors',
-  //   }).addTo(mapInstanceRef.current);
-
-  
-  //   // --- THE CRITICAL FIX FOR HOT RELOAD ---
-  //   return () => {
-  //     if (mapInstanceRef.current) {
-  //       mapInstanceRef.current.remove(); // This fixes "getPane() is undefined"
-  //       mapInstanceRef.current = null;
-  //     }
-  //   };
-  // }, []);
-
-  // return <div ref={mapContainerRef} className="w-full h-full" />;
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-[#1a1a1a]"> {/* Dark background to prevent flash */}
       <MapContainer
-        center={[51.505, -0.09]}
-        zoom={13}
+        center={[48.8606, 2.3376]} // Centered on Paris (Louvre) as per image
+        zoom={14}
         scrollWheelZoom={true}
-        className="w-full h-full"
-        zoomControl={false}
-        attributionControl={true}
+        className="w-full h-full outline-none"
+        zoomControl={false} // We will build custom UI for this
+        attributionControl={false}
+        key={uuidv7()}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {/* Dark Mode Tiles */}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
 
-        {/* <Marker position={[51.505, -0.09]}>
-          <Popup>Hello world</Popup>
-        </Marker> */}
-        <LocateUserOnLoad locationSetter = {setUserLocation}/>
-        <MarkerSetter setDisplay={setHighlighted} setPosition={setPosition}/>
-        <DisplayMarker displayed = {isHighlighted} position = {highlightPosition}/>
+        <MapResizer />
+        <LocateUserOnLoad locationSetter={setUserLocation} />
+        <MarkerSetter setDisplay={setHighlighted} setPosition={setPosition} />
+        <DisplayMarker displayed={isHighlighted} position={highlightPosition} />
+        
+        {/* User Marker */}
         <Marker position={userLocation}>
           <Popup>You are currently here</Popup>
         </Marker>
