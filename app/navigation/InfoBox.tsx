@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FaDirections, FaTicketAlt } from "react-icons/fa";
+import { FaDirections, FaStar, FaTicketAlt } from "react-icons/fa";
 import { IoMdClose } from "react-icons/io";
 import { Button } from "@/components/ui/button";
 
@@ -55,7 +55,7 @@ export function LocationInfoBox({ location, onClose }: LocationInfoBoxProps) {
 							type="button"
 							className="flex grow-1 flex-row justify-center items-center bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-full h-10"
 						>
-							<FaTicketAlt className="mr-2" /> Tickets
+							<FaStar className="mr-2" /> Add to Favourite 
 						</button>
 						<button
 							type="button"

@@ -1,31 +1,24 @@
 "use client";
 
+import type { LatLng } from "leaflet";
 import dynamic from "next/dynamic";
-import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
 	FaBell,
 	FaCog,
 	FaComments,
-	FaDirections,
-	FaLocationArrow,
 	FaMap,
-	FaMicrophone,
-	FaMinus,
-	FaPlus,
 	FaRoute,
 	FaSearch,
-	FaTicketAlt,
 } from "react-icons/fa";
 
-import { IoMdClose } from "react-icons/io";
-import { LuLocateFixed, LuSend } from "react-icons/lu";
-import { MdDashboard, MdRestaurant } from "react-icons/md";
-import { PiBankFill, PiParkFill } from "react-icons/pi";
+import { MdDashboard } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BotMessage, ChatBox, UserMessage } from "./chat";
-import { LocationDisplayInfo, LocationInfoBox } from "./InfoBox";
+import { ChatBox } from "./chat";
+import type { LocationDisplayInfo } from "./InfoBox";
+import { LocationInfoBox } from "./InfoBox";
+import { SidePlanner } from "./SidePlanner";
 
 // Dynamic import for the map
 const LeafletMap = dynamic(() => import("./map"), {
@@ -36,20 +29,59 @@ const LeafletMap = dynamic(() => import("./map"), {
 export default function Page() {
 	const [searchValue, setSearchValue] = useState<string>("");
 	const [activeTab, setActiveTab] = useState("Dashboard");
-	let mockLocation: LocationDisplayInfo = {
+	const [plannerOpen, setPlannerOpen] = useState(false);
+	const [isPickingCardLocation, setIsPickingCardLocation] = useState(false);
+	const [onCardLocationPicked, setOnCardLocationPicked] = useState<
+		(position: LatLng) => void
+	>(() => {});
+	const [planCards, setPlanCards] = useState<
+		Array<{
+			id: string;
+			title: string;
+			position?: LatLng;
+			color: string;
+		}>
+	>([]);
+
+	const mockLocation: LocationDisplayInfo = {
 		description: "Lorem Ipsum",
 		id: "mock",
 		name: "Musue",
 		imagePath: "",
-		gallery: []
-	}
+		gallery: [],
+	};
 	const [selectedLocation, setSelectedLocation] =
 		useState<LocationDisplayInfo | null>(mockLocation);
-	
+
+	const handleCardLocationPick = useCallback((callback: (position: LatLng) => void) => {
+		setIsPickingCardLocation(true);
+		setOnCardLocationPicked(() => (position: LatLng) => {
+			callback(position);
+			setIsPickingCardLocation(false);
+		});
+	}, []);
+
 	return (
 		<div className="flex flex-row w-full h-screen bg-[#0f1110] overflow-hidden font-sans text-gray-200">
+			{/* Side Planner */}
+			<SidePlanner
+				isOpen={plannerOpen}
+				onToggle={() => setPlannerOpen(!plannerOpen)}
+				onPickCardLocation={handleCardLocationPick}
+				onCardsChange={(cards) =>
+					setPlanCards(
+						cards.map((card) => ({
+							id: card.id,
+							title: card.title,
+							position: card.position,
+							color: card.color,
+						})),
+					)
+				}
+			/>
+
 			{/* --- SIDEBAR --- */}
-			<aside className="w-64 h-full flex flex-col justify-between border-r border-gray-800 bg-[#0f1110] z-20 shrink-0">
+			<aside className={`w-64 h-full flex flex-col justify-between border-r border-gray-800 bg-[#0f1110] z-20 shrink-0 transition-all ${plannerOpen ? "ml-80" : ""}`}>
 				<div className="p-6">
 					{/* Logo */}
 					<div className="flex items-center gap-3 mb-10">
@@ -124,7 +156,11 @@ export default function Page() {
 			<main className="relative flex-1 h-full">
 				{/* Map Background */}
 				<div className="absolute inset-0 z-0">
-					<LeafletMap />
+					<LeafletMap
+						isPickingCardLocation={isPickingCardLocation}
+						onCardLocationPicked={onCardLocationPicked}
+						planCards={planCards}
+					/>
 				</div>
 
 				{/* --- OVERLAYS --- */}
@@ -177,7 +213,7 @@ function SidebarItem({
 	active,
 	onClick,
 }: {
-	icon: any;
+	icon: React.ReactNode;
 	label: string;
 	active?: boolean;
 	onClick?: () => void;
@@ -204,10 +240,10 @@ function FilterPill({ label, active }: { label: string; active?: boolean }) {
 			className={`
          px-4 py-1.5 rounded-full text-xs font-medium border transition-all
          ${
-						active
-							? "bg-transparent border-emerald-500 text-white"
-							: "bg-transparent border-gray-700 text-gray-500 hover:border-gray-500"
-					}
+					active
+						? "bg-transparent border-emerald-500 text-white"
+						: "bg-transparent border-gray-700 text-gray-500 hover:border-gray-500"
+				}
       `}
 		>
 			{label}
@@ -215,11 +251,11 @@ function FilterPill({ label, active }: { label: string; active?: boolean }) {
 	);
 }
 
-function CircleButton({ icon }: { icon: any }) {
+function CircleButton({ icon }: { icon: React.ReactNode }) {
 	return (
 		<button
-			className="size-10 rounded-full bg-[#1e1e1e] border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition shadow-lg"
 			type="button"
+			className="size-10 rounded-full bg-[#1e1e1e] border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition shadow-lg"
 		>
 			{icon}
 		</button>

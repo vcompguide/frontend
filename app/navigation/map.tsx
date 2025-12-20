@@ -1,129 +1,268 @@
 "use client";
 
 import L, { LatLng } from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import {
+	MapContainer,
+	Marker,
+	Popup,
+	TileLayer,
+	useMap,
+	useMapEvents,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix for default marker icons in Next.js
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FaMinus, FaPlus } from "react-icons/fa";
 import { uuidv7 } from "uuidv7";
 
+// Fix for default marker icons in Next.js using public path
 L.Icon.Default.mergeOptions({
-  iconUrl: icon.src,
-  shadowUrl: iconShadow.src,
+	iconUrl: "/leaflet/marker-icon.png",
+	shadowUrl: "/leaflet/marker-shadow.png",
+	iconSize: [25, 41],
+	iconAnchor: [12, 41],
+	popupAnchor: [1, -34],
+	shadowSize: [41, 41],
 });
 
-function MarkerSetter({ setDisplay, setPosition }: {
-  setDisplay: (isDisplayed: boolean) => void;
-  setPosition: (LatLng: LatLng) => void;
+// Cache for custom markers to avoid recreating them
+const markerCache = new Map<string, L.Icon>();
+
+// Create a custom SVG marker icon with data URL
+const createCustomMarker = (color: string = "#3b82f6") => {
+	// Return cached marker if available
+	const cachedMarker = markerCache.get(color);
+	if (cachedMarker) {
+		return cachedMarker;
+	}
+
+	// SVG string for a pin marker
+	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="24" height="24" stroke="white" stroke-width="0.5"><path d="M12 2C6.48 2 2 6.48 2 12c0 8 10 16 10 16s10-8 10-16c0-5.52-4.48-10-10-10zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><circle cx="12" cy="12" r="3" fill="white"/></svg>`;
+	
+	// Properly encode SVG for data URL
+	const encodedSvg = svgString
+		.replace(/"/g, "'")
+		.replace(/</g, "%3C")
+		.replace(/>/g, "%3E")
+		.replace(/#/g, "%23")
+		.replace(/\s+/g, " ");
+	
+	const dataUrl = `data:image/svg+xml,${encodedSvg}`;
+	
+	const icon = new L.Icon({
+		iconUrl: dataUrl,
+		iconSize: [24, 24],
+		iconAnchor: [12, 24],
+		popupAnchor: [0, -24],
+	});
+	
+	// Cache the marker
+	markerCache.set(color, icon);
+	return icon;
+};
+
+// Component to handle map center changes
+function MapCenterUpdater({ center }: { center: { lat: number; lng: number } | undefined }) {
+	const map = useMap();
+
+	useEffect(() => {
+		if (center) {
+			map.flyTo([center.lat, center.lng], 15, {
+				duration: 1.5,
+			});
+		}
+	}, [center, map]);
+
+	return null;
+}
+
+function MarkerSetter({
+	setDisplay,
+	setPosition,
+	isPickingCardLocation,
+	onCardLocationPicked,
+}: {
+	setDisplay: (isDisplayed: boolean) => void;
+	setPosition: (LatLng: LatLng) => void;
+	isPickingCardLocation: boolean;
+	onCardLocationPicked: (position: LatLng) => void;
 }) {
-  useMapEvents({
-    click() {
-      setDisplay(false);
-    },
-    contextmenu(e) {
-      setPosition(e.latlng);
-      setDisplay(true);
-    },
-  });
-  return null;
+	useMapEvents({
+		click: (e) => {
+			if (isPickingCardLocation) {
+				onCardLocationPicked(e.latlng);
+			} else {
+				setDisplay(false);
+			}
+		},
+		contextmenu: (e) => {
+			if (!isPickingCardLocation) {
+				setPosition(e.latlng);
+				setDisplay(true);
+			}
+		},
+	});
+	return null;
 }
 
-function DisplayMarker({ displayed, position }: { displayed: boolean; position: LatLng }) {
-  return displayed ? <Marker position={position} /> : null;
+function DisplayMarker({
+	displayed,
+	position,
+}: {
+	displayed: boolean;
+	position: LatLng;
+}) {
+	return displayed ? <Marker position={position} /> : null;
 }
 
-function LocateUserOnLoad({ locationSetter }: { locationSetter: (LatLng: LatLng) => void }) {
-  const map = useMapEvents({
-    locationfound(e) {
-      map.flyTo(e.latlng, 14); // Zoom level 14 fits the city view better
-      locationSetter(e.latlng);
-    },
-  });
-  useEffect(() => {
-    map.locate();
-  }, [map]);
-  return null;
+function LocateUserOnLoad({
+	locationSetter,
+}: {
+	locationSetter: (LatLng: LatLng) => void;
+}) {
+	const map = useMapEvents({
+		locationfound: (e) => {
+			map.setView(e.latlng, 14); // Zoom level 14 fits the city view better
+			locationSetter(e.latlng);
+		},
+	});
+	useEffect(() => {
+		map.locate();
+	}, [map]);
+	return null;
 }
 
 // Ensure the map resizes correctly
 function MapResizer() {
-  const map = useMapEvents({});
-  useEffect(() => {
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-  }, [map]);
-  return null;
+	const map = useMapEvents({});
+	useEffect(() => {
+		setTimeout(() => {
+			map.invalidateSize();
+		}, 100);
+	}, [map]);
+	return null;
 }
 
 function MapZoomController() {
-  const map = useMap()
+	const map = useMap();
 
-  const handleZoomIn = (e) => {
-    e.stopPropagation();
-    map.zoomIn()
-  };
+	const handleZoomIn = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+		e.stopPropagation();
+		map.zoomIn();
+	}, [map]);
 
-  const handleZoomOut = (e) => {
-    e.stopPropagation();
-    map.zoomOut();
-  }
+	const handleZoomOut = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+		e.stopPropagation();
+		map.zoomOut();
+	}, [map]);
 
-  return (
-    <div className = "z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75">
-
-      <button type = "button"
-      className = "flex size-fit p-2 bg-black/50 justify-center items-center hover:bg-white/25 transition rounded-t"
-      onClick={handleZoomIn}>
-        <FaPlus className = "w-full h-full"/>
-      </button>
-      <button type = "button"
-        className = "flex size-fit p-2 bg-black/50 justify-center items-center hover:bg-white/25 transition rounded-b"
-      onClick = {handleZoomOut}>
-        <FaMinus/>
-      </button>
-    </div>
-  )
-
+	return (
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75">
+			<button
+				type="button"
+				className="flex size-fit p-2 bg-black/50 justify-center items-center hover:bg-white/25 transition rounded-t"
+				onClick={handleZoomIn}
+			>
+				<FaPlus className="w-full h-full" />
+			</button>
+			<button
+				type="button"
+				className="flex size-fit p-2 bg-black/50 justify-center items-center hover:bg-white/25 transition rounded-b"
+				onClick={handleZoomOut}
+			>
+				<FaMinus />
+			</button>
+		</div>
+	);
 }
 
-export default function LeafletMap() {
-  const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0));
-  const [isHighlighted, setHighlighted] = useState<boolean>(false);
-  const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
-  const [mapId] = useState(() => uuidv7())
-  return (
-    <div className="w-full h-full bg-[#1a1a1a]"> {/* Dark background to prevent flash */}
-      <MapContainer
-        center={[48.8606, 2.3376]} // Centered on Paris (Louvre) as per image
-        zoom={14}
-        scrollWheelZoom={true}
-        className="w-full h-full outline-none relative"
-        zoomControl={false} // We will build custom UI for this
-        attributionControl={false}
-        key={mapId}
-      >
-        {/* Dark Mode Tiles */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        />
+interface LeafletMapProps {
+	isPickingCardLocation?: boolean;
+	onCardLocationPicked?: (position: LatLng) => void;
+	planCards?: Array<{
+		id: string;
+		title: string;
+		position?: LatLng;
+		color: string;
+	}>;
+	centerLocation?: { lat: number; lng: number };
+}
 
-        {/* <MapResizer /> */}
-        {/* <LocateUserOnLoad locationSetter={setUserLocation} /> */}
-        {/* <MarkerSetter setDisplay={setHighlighted} setPosition={setPosition} /> */}
-        {/* <DisplayMarker displayed={isHighlighted} position={highlightPosition} /> */}
-        {/*  */}
-        {/* <Marker position={userLocation}> */}
-          {/* <Popup>You are currently here</Popup> */}
-        {/* </Marker> */}
-        <MapZoomController/>
-        <MapResizer/>
-      </MapContainer>
-    </div>
-  );
+export default function LeafletMap({
+	isPickingCardLocation = false,
+	onCardLocationPicked = () => {},
+	planCards = [],
+	centerLocation,
+}: LeafletMapProps) {
+	const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0));
+	const [isHighlighted, setHighlighted] = useState<boolean>(false);
+	const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
+	const [mapId] = useState(() => uuidv7());
+	const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(centerLocation);
+
+	const handleCardLocationPicked = useCallback(
+		(position: LatLng) => {
+			onCardLocationPicked(position);
+		},
+		[onCardLocationPicked]
+	);
+
+	// Hook to update map center when centerLocation changes
+	useEffect(() => {
+		if (centerLocation && mapCenter !== centerLocation) {
+			setMapCenter(centerLocation);
+		}
+	}, [centerLocation, mapCenter]);
+
+	return (
+		<div className={`w-full h-full bg-[#1a1a1a] ${isPickingCardLocation ? "cursor-crosshair" : ""}`}>
+			{/* Dark background to prevent flash */}
+			<MapContainer
+				center={[48.8606, 2.3376]}
+				zoom={14}
+				scrollWheelZoom={true}
+				className="w-full h-full outline-none relative"
+				zoomControl={false}
+				attributionControl={false}
+				key={mapId}
+			>
+				{/* Dark Mode Tiles */}
+				<TileLayer
+					url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+				/>
+
+				<MapResizer />
+				<MapCenterUpdater center={mapCenter} />
+				<LocateUserOnLoad locationSetter={setUserLocation} />
+				<MarkerSetter
+					setDisplay={setHighlighted}
+					setPosition={setPosition}
+					isPickingCardLocation={isPickingCardLocation}
+					onCardLocationPicked={handleCardLocationPicked}
+				/>
+				<DisplayMarker displayed={isHighlighted} position={highlightPosition} />
+				<Marker position={userLocation}>
+					<Popup>You are currently here</Popup>
+				</Marker>
+
+				{/* Plan Card Markers */}
+				{planCards.map(
+					(card) =>
+						card.position && (
+							<Marker
+								key={card.id}
+								position={card.position}
+								icon={createCustomMarker(card.color)}
+							>
+								<Popup>{card.title}</Popup>
+							</Marker>
+						),
+				)}
+
+				<MapZoomController />
+				<MapResizer />
+			</MapContainer>
+		</div>
+	);
 }
