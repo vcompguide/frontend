@@ -12,7 +12,7 @@ import {
 import "leaflet/dist/leaflet.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { FaMinus, FaPlus } from "react-icons/fa";
+import { FaMapMarkerAlt, FaMinus, FaPlus } from "react-icons/fa";
 import { uuidv7 } from "uuidv7";
 
 // Fix for default marker icons in Next.js using public path
@@ -36,10 +36,10 @@ const createCustomMarker = (color: string = "#3b82f6") => {
 		return cachedMarker;
 	}
 
-	// SVG string for a pin marker
-	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="24" height="24" stroke="white" stroke-width="0.5"><path d="M12 2C6.48 2 2 6.48 2 12c0 8 10 16 10 16s10-8 10-16c0-5.52-4.48-10-10-10zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><circle cx="12" cy="12" r="3" fill="white"/></svg>`;
+	// SVG string for FaMapMarkerAlt pin marker
+	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="${color}"><path d="M192 0C86 0 0 86 0 192c0 127.4 192 320 192 320s192-192.6 192-320c0-106-86-192-192-192zm0 287.6c-52.6 0-96-43.4-96-96s43.4-96 96-96 96 43.4 96 96-43.4 96-96 96z"/></svg>`;
 	
-	// Properly encode SVG for data URL
+	// Encode SVG for data URL
 	const encodedSvg = svgString
 		.replace(/"/g, "'")
 		.replace(/</g, "%3C")
@@ -51,9 +51,9 @@ const createCustomMarker = (color: string = "#3b82f6") => {
 	
 	const icon = new L.Icon({
 		iconUrl: dataUrl,
-		iconSize: [24, 24],
-		iconAnchor: [12, 24],
-		popupAnchor: [0, -24],
+		iconSize: [24, 32],
+		iconAnchor: [12, 32],
+		popupAnchor: [0, -32],
 	});
 	
 	// Cache the marker
