@@ -13,6 +13,9 @@ interface DashboardProps {
 		color: string;
 		priority: "low" | "medium" | "high";
 		tags: string[];
+		finished?: boolean;
+		startTime?: number;
+		createdAt?: number;
 	}>;
 	savedRoutes?: Array<{
 		id: string;
@@ -81,18 +84,18 @@ export function DashboardScreen({
 				value: savedRoutes.length.toString(),
 				color: "emerald",
 			},
-			{
-				icon: <FaMap />,
-				label: "Visited Places",
-				value: totalWaypoints.toString(),
-				color: "blue",
-			},
-			{
-				icon: <FaClock />,
-				label: "Total Time Spent",
-				value: timeString,
-				color: "purple",
-			},
+			// {
+			// 	icon: <FaMap />,
+			// 	label: "Visited Places",
+			// 	value: totalWaypoints.toString(),
+			// 	color: "blue",
+			// },
+			// {
+			// 	icon: <FaClock />,
+			// 	label: "Total Time Spent",
+			// 	value: timeString,
+			// 	color: "purple",
+			// },
 			{
 				icon: <FaMap />,
 				label: "Active Plans",
@@ -148,30 +151,48 @@ export function DashboardScreen({
 						<h2 className="text-xl font-bold text-white mb-4">Recent Plans</h2>
 						<div className="space-y-3">
 							{planCards.length > 0 ? (
-								planCards.slice(0, 5).map((card) => (
-									<div
-										key={card.id}
-										className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-lg hover:bg-[#333] transition"
-									>
+								planCards
+									.sort((a, b) => {
+										// Sort by creation time, most recent first (closest to current time)
+										const aTime = a.createdAt || 0;
+										const bTime = b.createdAt || 0;
+										return bTime - aTime;
+									})
+									.slice(0, 5)
+									.map((card) => (
 										<div
-											className="size-3 rounded-full flex-shrink-0"
-											style={{ backgroundColor: card.color }}
-										/>
-										<div className="flex-1 min-w-0">
-											<p className="text-white text-sm font-medium truncate">
-												{card.title}
-											</p>
-											{card.position && (
-												<p className="text-gray-400 text-xs">
-													📍{" "}
-													{card.position.lat.toFixed(2)},
-													{card.position.lng.toFixed(2)}
+											key={card.id}
+											className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-lg hover:bg-[#333] transition"
+										>
+											<div
+												className="size-3 rounded-full flex-shrink-0"
+												style={{ backgroundColor: card.color }}
+											/>
+											<div className="flex-1 min-w-0">
+												<p className="text-white text-sm font-medium truncate">
+													{card.title}
 												</p>
-											)}
+												{card.position && (
+													<p className="text-gray-400 text-xs">
+														📍{" "}
+														{card.position.lat.toFixed(2)},
+														{card.position.lng.toFixed(2)}
+													</p>
+												)}
+												{card.startTime && (
+													<p className="text-gray-400 text-xs">
+														⏰ {new Date(card.startTime).toLocaleDateString()} at {new Date(card.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+													</p>
+												)}
+											</div>
+											<span className="text-gray-400 text-xs whitespace-nowrap">
+												{card.createdAt 
+													? new Date(card.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+													: 'Today'
+												}
+											</span>
 										</div>
-										<span className="text-gray-400 text-xs">Today</span>
-									</div>
-								))
+									))
 							) : (
 								<div className="text-center py-8 text-gray-400">
 									<p>No plans yet. Create one to get started!</p>

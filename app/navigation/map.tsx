@@ -61,6 +61,11 @@ const createCustomMarker = (color: string = "#3b82f6") => {
 	return icon;
 };
 
+// Create a distinct search result marker (same style as plan markers)
+const createSearchMarker = () => {
+	return createCustomMarker("#00d492"); // Amber color for search results
+};
+
 // Component to handle map center changes
 function MapCenterUpdater({ 
 	center
@@ -208,6 +213,13 @@ interface LeafletMapProps {
 		priority: "low" | "medium" | "high";
 		tags: string[];
 	}>;
+	searchResults?: Array<{
+		place_id: number;
+		display_name: string;
+		lat: number;
+		lng: number;
+		type: string;
+	}>;
 	centerLocation?: { lat: number; lng: number };
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
@@ -218,6 +230,7 @@ export default function LeafletMap({
 	onCardLocationPicked = () => {},
 	onCursorMove = () => {},
 	planCards = [],
+	searchResults = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
 }: LeafletMapProps) {
@@ -241,17 +254,23 @@ export default function LeafletMap({
 		}
 	}, [centerLocation]);
 
+	// Debug: Log search results when they change
+	useEffect(() => {
+		if (searchResults.length > 0) {
+			console.log('Search results received:', searchResults);
+		}
+	}, [searchResults]);
+
 	return (
 		<div className={`w-full h-full bg-[#1a1a1a] ${isPickingCardLocation ? "cursor-crosshair" : ""}`}>
 			{/* Dark background to prevent flash */}
 			<MapContainer
-				center={initialCenter as [number, number]}
+				center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
 				zoom={14}
 				scrollWheelZoom={true}
 				className="w-full h-full outline-none relative"
 				zoomControl={false}
 				attributionControl={false}
-				key={mapId}
 			>
 				{/* Dark Mode Tiles */}
 				<TileLayer
@@ -284,14 +303,33 @@ export default function LeafletMap({
 								key={card.id}
 								position={card.position}
 								icon={createCustomMarker(card.color)}
+								zIndexOffset={100}
 							>
 								<Popup>{card.title}</Popup>
 							</Marker>
 						),
 				)}
 
-				<MapZoomController />
-			</MapContainer>
-		</div>
-	);
+				{/* Search Result Markers - Render last to appear on top */}
+				{searchResults.length > 0 && searchResults.map((result) => (
+					<Marker
+						key={`search-${result.place_id}`}
+						position={[result.lat, result.lng]}
+						icon={createSearchMarker()}
+						zIndexOffset={1000}
+						pane="markerPane"
+					>
+						<Popup>
+							<div className="text-sm">
+								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
+								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
+								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
+							</div>
+						</Popup>
+					</Marker>			))}
+
+			<MapZoomController />
+		</MapContainer>
+	</div>
+);
 }

@@ -19,6 +19,9 @@ export interface PlannerCard {
 	color: string;
 	tags: string[];
 	position?: LatLng;
+	finished?: boolean;
+	startTime?: number; // Timestamp for planned start time
+	createdAt?: number; // Internal creation time
 }
 
 interface RouteViewerProps {
@@ -96,11 +99,21 @@ export function RouteViewer({ isOpen, onToggle, onCardsChange, initialCards = []
 					) : (
 						<SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
 							{cards.map((card) => (
-								<SortableCard key={card.id} card={card} onRemove={() => {
-									const updated = cards.filter(c => c.id !== card.id);
-									setCards(updated);
-									onCardsChange?.(updated);
-								}} onEdit={() => setEditingCardId(card.id)} />
+								<SortableCard 
+									key={card.id} 
+									card={card} 
+									onRemove={() => {
+										const updated = cards.filter(c => c.id !== card.id);
+										setCards(updated);
+										onCardsChange?.(updated);
+									}} 
+									onEdit={() => setEditingCardId(card.id)}
+									onToggleFinished={() => {
+										const updated = cards.map(c => c.id === card.id ? { ...c, finished: !c.finished } : c);
+										setCards(updated);
+										onCardsChange?.(updated);
+									}}
+								/>
 							))}
 						</SortableContext>
 					)}
@@ -113,6 +126,8 @@ export function RouteViewer({ isOpen, onToggle, onCardsChange, initialCards = []
 					card={cards.find(c => c.id === editingCardId) as typeof cards[0]} 
 					onClose={() => setEditingCardId(null)} 
 					onSave={(updated) => {
+						console.log('Saving card with data:', updated);
+						console.log('Updated startTime:', updated.startTime);
 						const list = cards.map(c => c.id === updated.id ? updated : c);
 						setCards(list);
 						onCardsChange?.(list);
@@ -129,15 +144,23 @@ export function RouteViewer({ isOpen, onToggle, onCardsChange, initialCards = []
 	);
 }
 
-function SortableCard({ card, onRemove, onEdit }: { card: PlannerCard; onRemove: (id: string) => void; onEdit: (card: PlannerCard) => void }) {
+function SortableCard({ card, onRemove, onEdit, onToggleFinished }: { card: PlannerCard; onRemove: (id: string) => void; onEdit: (card: PlannerCard) => void; onToggleFinished: () => void }) {
 	const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
 	const style = { transform: CSS.Transform.toString(transform), transition };
 
+	const handleFinishedToggle = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		onToggleFinished();
+	};
+
 	return (
-		<div ref={setNodeRef} {...attributes} {...listeners} className="p-4 rounded-xl border transition-all" style={{...style, borderColor: `${card.color}40`, backgroundColor: `${card.color}10`}}>
+		<div ref={setNodeRef} {...attributes} {...listeners} className={`p-4 rounded-xl border transition-all ${card.finished ? 'opacity-60' : ''}`} style={{...style, borderColor: `${card.color}40`, backgroundColor: `${card.color}10`}}>
 			<div className="flex justify-between mb-2">
-				<h3 className="text-sm font-bold text-white">{card.title}</h3>
+				<h3 className={`text-sm font-bold text-white ${card.finished ? 'line-through text-gray-500' : ''}`}>{card.title}</h3>
 				<div className="flex gap-2">
+					<button type="button" onClick={handleFinishedToggle} className={`text-sm px-2 py-1 rounded transition ${card.finished ? 'bg-green-500/30 text-green-400' : 'bg-gray-700/30 text-gray-400 hover:bg-gray-600/30'}`} title="Toggle finished">
+						{card.finished ? '✓' : '○'}
+					</button>
 					<button type="button" onClick={() => onEdit(card)} className="text-gray-400 hover:text-white"><FaEdit size={12}/></button>
 					<button type="button" onClick={() => onRemove(card.id)} className="text-gray-400 hover:text-red-500"><FaTrash size={12}/></button>
 				</div>
@@ -151,7 +174,14 @@ function SortableCard({ card, onRemove, onEdit }: { card: PlannerCard; onRemove:
 					))}
 				</div>
 			)}
-			{card.position && <span className="text-[10px] text-emerald-400">📍 Location Set</span>}
+			<div className="flex flex-wrap gap-2">
+				{card.position && <span className="text-[10px] text-emerald-400">📍 Location Set</span>}
+				{card.startTime && (
+					<span className="text-[12px] text-blue-400">
+						⏰ {new Date(card.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(card.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+					</span>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -161,6 +191,38 @@ function EditModal({ card, onClose, onSave, onLocationPicked }: { card: PlannerC
 	const [tagInput, setTagInput] = useState("");
 	const [isPickingLocation, setIsPickingLocation] = useState(false);
 	const [selectedLocation, setSelectedLocation] = useState<LatLng | undefined>(card.position);
+
+	useEffect(() => {
+		console.log('EditModal received card:', card);
+		console.log('Card startTime:', card.startTime);
+		setData(card);
+		setSelectedLocation(card.position);
+	}, [card.id]);
+
+	// Helper function to format timestamp to datetime-local input format
+	const formatDateTimeLocal = (timestamp: number): string => {
+		const date = new Date(timestamp);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	};
+
+	// Helper function to parse datetime-local input to timestamp
+	const parseDateTimeLocal = (value: string): number => {
+		const [datePart, timePart] = value.split('T');
+		const [year, month, day] = datePart.split('-');
+		const [hours, minutes] = timePart.split(':');
+		return new Date(
+			parseInt(year),
+			parseInt(month) - 1,
+			parseInt(day),
+			parseInt(hours),
+			parseInt(minutes)
+		).getTime();
+	};
 
 	const COLOR_OPTIONS = [
 		"#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899",
@@ -257,6 +319,49 @@ function EditModal({ card, onClose, onSave, onLocationPicked }: { card: PlannerC
 								</div>
 							))}
 						</div>
+					</div>
+
+					{/* Finished Toggle */}
+					<div className="mb-6 flex items-center gap-3">
+						<button
+							type="button"
+							onClick={() => setData({...data, finished: !data.finished})}
+							className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+								data.finished 
+									? 'bg-green-500/30 text-green-400 border border-green-500/50' 
+									: 'bg-gray-700/30 text-gray-400 border border-gray-700/50 hover:bg-gray-600/30'
+							}`}
+						>
+							{data.finished ? '✓ Completed' : '○ Pending'}
+						</button>
+						<span className="text-xs text-gray-400">Mark as complete</span>
+					</div>
+
+					{/* Start Time */}
+					<div className="mb-6">
+						<label htmlFor="start-time" className="text-xs text-gray-400 mb-2 block">Start Time (Optional)</label>
+						<input 
+							id="start-time"
+							type="datetime-local"
+							className="w-full bg-[#2a2a2a] p-3 rounded-lg text-white text-sm [color-scheme:dark]"
+							value={data.startTime ? formatDateTimeLocal(data.startTime) : ""}
+							onChange={(e) => {
+								console.log('Input value:', e.target.value);
+								if (e.target.value) {
+									const timestamp = parseDateTimeLocal(e.target.value);
+									console.log('Parsed timestamp:', timestamp);
+									console.log('Formatted back:', formatDateTimeLocal(timestamp));
+									setData({...data, startTime: timestamp});
+								} else {
+									setData({...data, startTime: undefined});
+								}
+							}}
+						/>
+						{data.startTime && (
+							<p className="text-xs text-gray-400 mt-2">
+								📅 {new Date(data.startTime).toLocaleDateString()} at {new Date(data.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+							</p>
+						)}
 					</div>
 
 					{/* Location Button */}

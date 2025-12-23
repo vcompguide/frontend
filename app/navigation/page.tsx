@@ -10,7 +10,8 @@ import { ChatBox } from "./chat";
 import { DashboardScreen } from "./DashboardScreen";
 import { NotificationProvider } from "./NotificationContext";
 import { type PlannerCard, RouteViewer } from "./RouteViewer";
-import { type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
+import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
+import { SearchBox, type SearchResultMarker } from "./SearchBox";
 import { SettingsScreen } from "./SettingsScreen";
 
 const LeafletMap = dynamic(() => import("./map"), {
@@ -27,6 +28,7 @@ export default function Page() {
 	const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
 	const [plannerCards, setPlannerCards] = useState<PlannerCard[]>([]);
 	const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+	const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
 	const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
 	]);
 
@@ -43,8 +45,12 @@ export default function Page() {
 						id: c.id,
 						title: c.title,
 						description: c.description,
-						position: c.position ? { lat: c.position.lat, lng: c.position.lng } : { lat: 0, lng: 0 },
-					}))
+						location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
+						color: c.color,
+						finished: c.finished,
+						startTime: c.startTime,
+						createdAt: c.createdAt,
+					}) as Plan)
 				};
 			}
 			return route;
@@ -53,15 +59,24 @@ export default function Page() {
 
 	const handleImportRoute = (route: SavedRoute) => {
 		// Load the new route without clearing first to prevent map reset
-		const cards: PlannerCard[] = route.waypointsList.map((w) => ({
-			id: w.id,
-			title: w.title,
-			description: w.description || "",
-			position: w.position as unknown as LatLng,
-			priority: "medium",
-			color: route.color,
-			tags: []	
-		}));
+		const cards: PlannerCard[] = route.waypointsList.map((w) => {
+			let position: LatLng | undefined;
+			if (w.location && Array.isArray(w.location) && w.location.length === 2) {
+				position = { lat: w.location[0], lng: w.location[1] } as LatLng;
+			}
+			return {
+				id: w.id,
+				title: w.title,
+				description: w.description || "",
+				position,
+				priority: "medium" as const,
+				color: w.color,
+				tags: [],
+				finished: w.finished,
+				startTime: w.startTime,
+				createdAt: w.createdAt,
+			};
+		});
 		
 		// Set map center: if route has waypoints, center on first waypoint; otherwise use default
 		if (route.waypointsList.length > 0 && route.waypointsList[0].location) {
@@ -113,11 +128,26 @@ export default function Page() {
 			priority: "medium",
 			color: "#10b981",
 			tags: [],
+			createdAt: Date.now(),
 		};
 		const updatedCards = [...plannerCards, newCard];
 		setPlannerCards(updatedCards);
 		handleCardsChange(updatedCards);
 	};
+
+	const handleLocationSelect = useCallback((location: { lat: number; lng: number; name: string }) => {
+		// Center map on selected location
+		setMapCenter({ lat: location.lat, lng: location.lng });
+		// Switch to map view if not already there
+		if (activeTab !== "Map View") {
+			setActiveTab("Map View");
+		}
+	}, [activeTab]);
+
+	const handleSearchResultsChange = useCallback((results: SearchResultMarker[]) => {
+		console.log('Page received search results:', results);
+		setSearchResults(results);
+	}, []);
 
 	const activeRoute = savedRoutes.find(r => r.id === activeRouteId);
 
@@ -150,7 +180,20 @@ export default function Page() {
 						
 						{activeRoute && (
 							<div className="mt-8 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-								<p className="text-[10px] font-bold text-emerald-500 uppercase mb-1">Active Route</p>
+							<div className="flex items-center justify-between mb-2">
+								<p className="text-[10px] font-bold text-emerald-500 uppercase">Active Route</p>
+								<button
+									type="button"
+									onClick={() => {
+										setActiveRouteId(null);
+										setPlannerCards([]);
+									}}
+									className="text-xs px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition"
+									title="Unload current route"
+								>
+									Unload
+								</button>
+							</div>
 								<p className="text-sm text-white font-medium truncate">{activeRoute.name}</p>
 							</div>
 						)}
@@ -170,16 +213,20 @@ export default function Page() {
 					{activeTab === "Map View" && (
 						<>
 							<div className="absolute inset-0 z-0">
-								<LeafletMap isPickingCardLocation={isPickingLocation} onCardLocationPicked={onLocationPicked} planCards={plannerCards} centerLocation={mapCenter} />
+								<LeafletMap 
+									isPickingCardLocation={isPickingLocation} 
+									onCardLocationPicked={onLocationPicked} 
+									planCards={plannerCards} 
+									centerLocation={mapCenter}
+									searchResults={searchResults}
+								/>
 							</div>
 							<div className="absolute top-0 left-0 right-0 p-6 z-10 flex justify-between pointer-events-none">
-								<div className="pointer-events-auto w-1/3 relative">
-									<FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
-									<input className="w-full h-12 bg-[#1e1e1e]/90 backdrop-blur-md pl-12 rounded-full text-white" placeholder="Search places..." />
-								</div>
-								<div className="pointer-events-auto flex gap-3">
-									<CircleButton icon={<FaBell />} />
-									<CircleButton icon={<FaCog />} onClick={() => setActiveTab("Settings")} />
+								<div className="pointer-events-auto">
+								<SearchBox 
+									onLocationSelect={handleLocationSelect}
+									onSearchResultsChange={handleSearchResultsChange}
+								/>
 								</div>
 							</div>
 							<ChatBox />

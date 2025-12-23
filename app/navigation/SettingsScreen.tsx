@@ -22,7 +22,7 @@ export function SettingsScreen() {
 				{/* Settings Sections */}
 				<div className="space-y-8">
 					{/* Appearance */}
-					<div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+					{/* <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
 						<h2 className="text-xl font-bold text-white mb-6">Appearance</h2>
 						<div className="space-y-4">
 							<div className="flex items-center justify-between">
@@ -41,10 +41,10 @@ export function SettingsScreen() {
 								</select>
 							</div>
 						</div>
-					</div>
+					</div> */}
 
 					{/* Notifications */}
-					<div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+					{/* <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
 						<h2 className="text-xl font-bold text-white mb-6">Notifications</h2>
 						<div className="space-y-4">
 							<div className="flex items-center justify-between">
@@ -68,9 +68,9 @@ export function SettingsScreen() {
 								</button>
 							</div>
 						</div>
-					</div>
+					</div> */}
 
-					{/* Map Settings */}
+					{/* Map Settings
 					<div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
 						<h2 className="text-xl font-bold text-white mb-6">Map Settings</h2>
 						<div className="space-y-4">
@@ -95,7 +95,7 @@ export function SettingsScreen() {
 								</button>
 							</div>
 						</div>
-					</div>
+					</div> */}
 
 					{/* Account */}
 					<div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
