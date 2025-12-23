@@ -12,7 +12,7 @@ import {
 import "leaflet/dist/leaflet.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { FaMapMarkerAlt, FaMinus, FaPlus } from "react-icons/fa";
+import { FaMinus, FaPlus } from "react-icons/fa";
 import { uuidv7 } from "uuidv7";
 
 // Fix for default marker icons in Next.js using public path
@@ -62,7 +62,11 @@ const createCustomMarker = (color: string = "#3b82f6") => {
 };
 
 // Component to handle map center changes
-function MapCenterUpdater({ center }: { center: { lat: number; lng: number } | undefined }) {
+function MapCenterUpdater({ 
+	center
+}: { 
+	center: { lat: number; lng: number } | undefined;
+}) {
 	const map = useMap();
 
 	useEffect(() => {
@@ -76,14 +80,13 @@ function MapCenterUpdater({ center }: { center: { lat: number; lng: number } | u
 	return null;
 }
 
+
 function MarkerSetter({
 	setDisplay,
-	setPosition,
 	isPickingCardLocation,
 	onCardLocationPicked,
 }: {
 	setDisplay: (isDisplayed: boolean) => void;
-	setPosition: (LatLng: LatLng) => void;
 	isPickingCardLocation: boolean;
 	onCardLocationPicked: (position: LatLng) => void;
 }) {
@@ -95,10 +98,21 @@ function MarkerSetter({
 				setDisplay(false);
 			}
 		},
-		contextmenu: (e) => {
-			if (!isPickingCardLocation) {
-				setPosition(e.latlng);
-				setDisplay(true);
+	});
+	return null;
+}
+
+function CursorTracker({
+	isPickingCardLocation,
+	onCursorMove,
+}: {
+	isPickingCardLocation: boolean;
+	onCursorMove: (position: LatLng) => void;
+}) {
+	useMapEvents({
+		mousemove: (e) => {
+			if (isPickingCardLocation) {
+				onCursorMove(e.latlng);
 			}
 		},
 	});
@@ -122,12 +136,17 @@ function LocateUserOnLoad({
 }) {
 	const map = useMapEvents({
 		locationfound: (e) => {
-			map.setView(e.latlng, 14); // Zoom level 14 fits the city view better
 			locationSetter(e.latlng);
+			// Don't auto-set view - let MapCenterUpdater handle positioning
 		},
 	});
 	useEffect(() => {
-		map.locate();
+		// Only locate once on mount
+		const hasLocated = (map as any).__hasLocated;
+		if (!hasLocated) {
+			map.locate();
+			(map as any).__hasLocated = true;
+		}
 	}, [map]);
 	return null;
 }
@@ -179,22 +198,30 @@ function MapZoomController() {
 interface LeafletMapProps {
 	isPickingCardLocation?: boolean;
 	onCardLocationPicked?: (position: LatLng) => void;
+	onCursorMove?: (position: LatLng) => void;
 	planCards?: Array<{
 		id: string;
 		title: string;
+		description: string;
 		position?: LatLng;
 		color: string;
+		priority: "low" | "medium" | "high";
+		tags: string[];
 	}>;
 	centerLocation?: { lat: number; lng: number };
+	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
+	initialCenter?: [number, number];
 }
 
 export default function LeafletMap({
 	isPickingCardLocation = false,
 	onCardLocationPicked = () => {},
+	onCursorMove = () => {},
 	planCards = [],
 	centerLocation,
+	initialCenter = [10.7725, 106.6980],
 }: LeafletMapProps) {
-	const [highlightPosition, setPosition] = useState<LatLng>(new LatLng(0, 0));
+	const [_highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
 	const [isHighlighted, setHighlighted] = useState<boolean>(false);
 	const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
 	const [mapId] = useState(() => uuidv7());
@@ -207,18 +234,18 @@ export default function LeafletMap({
 		[onCardLocationPicked]
 	);
 
-	// Hook to update map center when centerLocation changes
+	// Hook to update map center ONLY when centerLocation prop changes (not from user interaction)
 	useEffect(() => {
-		if (centerLocation && mapCenter !== centerLocation) {
+		if (centerLocation) {
 			setMapCenter(centerLocation);
 		}
-	}, [centerLocation, mapCenter]);
+	}, [centerLocation]);
 
 	return (
 		<div className={`w-full h-full bg-[#1a1a1a] ${isPickingCardLocation ? "cursor-crosshair" : ""}`}>
 			{/* Dark background to prevent flash */}
 			<MapContainer
-				center={[48.8606, 2.3376]}
+				center={initialCenter as [number, number]}
 				zoom={14}
 				scrollWheelZoom={true}
 				className="w-full h-full outline-none relative"
@@ -233,15 +260,18 @@ export default function LeafletMap({
 				/>
 
 				<MapResizer />
-				<MapCenterUpdater center={mapCenter} />
-				<LocateUserOnLoad locationSetter={setUserLocation} />
+			<MapCenterUpdater center={mapCenter} />
+			<LocateUserOnLoad locationSetter={setUserLocation} />
 				<MarkerSetter
 					setDisplay={setHighlighted}
-					setPosition={setPosition}
 					isPickingCardLocation={isPickingCardLocation}
 					onCardLocationPicked={handleCardLocationPicked}
 				/>
-				<DisplayMarker displayed={isHighlighted} position={highlightPosition} />
+				<CursorTracker
+					isPickingCardLocation={isPickingCardLocation}
+					onCursorMove={onCursorMove}
+				/>
+				<DisplayMarker displayed={isHighlighted} position={_highlightPosition} />
 				<Marker position={userLocation}>
 					<Popup>You are currently here</Popup>
 				</Marker>
@@ -261,7 +291,6 @@ export default function LeafletMap({
 				)}
 
 				<MapZoomController />
-				<MapResizer />
 			</MapContainer>
 		</div>
 	);

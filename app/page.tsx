@@ -1,5 +1,4 @@
 import {
-	ArrowRight,
 	BookOpen,
 	ChevronLeft,
 	ChevronRight,
@@ -8,11 +7,9 @@ import {
 	Mail,
 	Map,
 	Menu,
-	Play,
 	Sparkles,
 	ThumbsUp,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
@@ -81,7 +78,6 @@ const FeatureCard = ({
 );
 
 const DestinationCard = ({
-	image,
 	title,
 	subtitle,
 }: {
@@ -301,7 +297,7 @@ export default function Home() {
 					</div>
 				</div>
 				<div className="text-center text-[10px] text-gray-600 mt-8">
-					© 2023 Virtual Tour Guide Inc.
+					© 2025 Virtual Tour Guide Inc.
 				</div>
 			</footer>
 		</div>

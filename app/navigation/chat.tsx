@@ -127,10 +127,10 @@ export function ChatBox() {
 		>
 			<div className="bg-[#1e1e1e]/95 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[450px]">
 				{/* Chat Header */}
-				<div className="flex justify-between items-center p-3 border-b border-white/5 w-full shrink-0">
+				<div className="flex justify-between items-center border-b border-white/5 w-full h-full shrink-0">
 					<button
 						type="button"
-						className="flex justify-start items-center flex-1 cursor-pointer hover:opacity-80 transition"
+						className="flex justify-start items-center flex-1 p-3 cursor-pointer hover:opacity-80 transition"
 						onClick={() => {
 							setShowDetail(!showDetail);
 						}}
@@ -154,22 +154,22 @@ export function ChatBox() {
 							messageList.length > 0 &&
 							<button
 							type="button"
-							className="text-red-500 hover:text-red-400 transition"
+							className="text-red-500 hover:text-red-400 transition p-3"
 							onClick={clearMessages}
 							title="Clear all messages"
 							>
 							<FaTrash size={14} />
 						</button>
 						}
-						<button
+						{/* <button
 							type="button"
-							className="text-gray-500 hover:text-gray-400 transition"
+							className="text-gray-500 p-3 hover:text-gray-400 transition"
 							onClick={() => {
 								setShowDetail(!showDetail);
 							}}
 						>
 							<FaMinus />
-						</button>
+						</button> */}
 					</div>
 				</div>
 				{/* Chat Content */}
