@@ -202,3 +202,9 @@ body.cursor-grabbing * {
 .animate-pop-in {
   animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Styling for search result markers */
+.search-marker-pulse {
+	filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 1px rgba(251, 191, 36, 0.9));
+	z-index: 1000 !important;
+}
