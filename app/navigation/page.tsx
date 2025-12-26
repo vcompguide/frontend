@@ -3,7 +3,7 @@
 import type { LatLng } from "leaflet";
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
-import { FaBell, FaCog, FaMap, FaRoute, FaSearch } from "react-icons/fa";
+import { FaMap, FaRoute } from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
 import {uuidv7} from "uuidv7";
 import { ChatBox } from "./chat";
@@ -14,7 +14,7 @@ import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScre
 import { SearchBox, type SearchResultMarker } from "./SearchBox";
 import { SettingsScreen } from "./SettingsScreen";
 
-const LeafletMap = dynamic(() => import("./map"), {
+const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
 	ssr: false,
 	loading: () => <div className="w-full h-full bg-[#1e1e1e] animate-pulse" />,
 });
@@ -27,7 +27,7 @@ export default function Page() {
 	
 	const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
 	const [plannerCards, setPlannerCards] = useState<PlannerCard[]>([]);
-	const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+	const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
 	const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
 	const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
 	]);
@@ -135,6 +135,58 @@ export default function Page() {
 		handleCardsChange(updatedCards);
 	};
 
+	const handleAddPlanFromMap = useCallback((position: LatLng) => {
+		// If no route is active, create and import a new route first
+		if (!activeRouteId) {
+			const newRoute: SavedRoute = {
+				id: uuidv7(),
+				name: `New Route ${savedRoutes.length + 1}`,
+				distance: "0 km",
+				duration: "0 min",
+				waypointsList: [],
+				color: "#10b981",
+				createdAt: new Date().toLocaleDateString(),
+			};
+
+			// Add to saved routes
+			const updatedRoutes = [...savedRoutes, newRoute];
+			setSavedRoutes(updatedRoutes);
+
+			// Set as active route
+			setActiveRouteId(newRoute.id);
+			
+			// Center map on the new plan location
+			setMapCenter({ lat: position.lat, lng: position.lng });
+			
+			// Open route viewer if closed
+			if (!viewerOpen) {
+				setViewerOpen(true);
+			}
+			
+			// Switch to map view
+			setActiveTab("Map View");
+		}
+
+		const newCard: PlannerCard = {
+			id: Math.random().toString(36).substr(2, 9),
+			title: `Plan ${plannerCards.length + 1}`,
+			description: "Added from map",
+			priority: "medium",
+			color: "#10b981",
+			tags: [],
+			position: position,
+			createdAt: Date.now(),
+		};
+		const updatedCards = [...plannerCards, newCard];
+		setPlannerCards(updatedCards);
+		handleCardsChange(updatedCards);
+		
+		// Open route viewer if closed and switch to map view
+		if (!viewerOpen) {
+			setViewerOpen(true);
+		}
+	}, [plannerCards, viewerOpen, handleCardsChange, activeRouteId, savedRoutes]);
+
 	const handleLocationSelect = useCallback((location: { lat: number; lng: number; name: string }) => {
 		// Center map on selected location
 		setMapCenter({ lat: location.lat, lng: location.lng });
@@ -153,7 +205,11 @@ export default function Page() {
 
 	return (
 		<NotificationProvider>
-			<div className="relative flex flex-row w-full h-screen bg-[#0f1110] overflow-hidden font-sans text-gray-200">
+			<div 
+				className="relative flex flex-row w-full h-screen bg-[#0f1110] overflow-hidden font-sans text-gray-200" 
+				onContextMenu={(e) => { e.preventDefault(); }}
+				role="application"
+			>
 				<RouteViewer
 					isOpen={viewerOpen}
 					onToggle={() => setViewerOpen(!viewerOpen)}
@@ -219,6 +275,7 @@ export default function Page() {
 									planCards={plannerCards} 
 									centerLocation={mapCenter}
 									searchResults={searchResults}
+									onAddPlanFromMap={handleAddPlanFromMap}
 								/>
 							</div>
 							<div className="absolute top-0 left-0 right-0 p-6 z-10 flex justify-between pointer-events-none">
@@ -242,14 +299,6 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode; 
 	return (
 		<button type="button" onClick={onClick} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${active ? "bg-emerald-500/10 text-emerald-500" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
 			{icon} <span className="text-sm font-medium">{label}</span>
-		</button>
-	);
-}
-
-function CircleButton({ icon, onClick }: { icon: React.ReactNode; onClick?: () => void }) {
-	return (
-		<button type="button" onClick={onClick} className="size-10 rounded-full bg-[#1e1e1e] border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition shadow-lg">
-			{icon}
 		</button>
 	);
 }

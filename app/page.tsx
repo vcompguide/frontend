@@ -1,3 +1,4 @@
+"use client";
 import {
 	BookOpen,
 	ChevronLeft,
@@ -104,7 +105,7 @@ const DestinationCard = ({
 
 export default function Home() {
 	return (
-		<div className="min-h-screen bg-[#081212] text-white font-sans selection:bg-[#00D26A] selection:text-black">
+		<div className="min-h-screen bg-[#081212] text-white font-sans selection:bg-[#00D26A] selection:text-black" onContextMenu={(e) => e.preventDefault()}>
 			{/* Navigation */}
 			<nav className="container mx-auto px-6 py-6 flex items-center justify-between">
 				<div className="flex items-center gap-2">
@@ -152,7 +153,7 @@ export default function Home() {
               priority
             /> */}
 						{/* Dark overlay gradient */}
-						<div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-[#081212]" />
+						<div className="absolute inset-0 bg-linear-to-b from-black/30 via-transparent to-[#081212]" />
 					</div>
 
 					{/* Hero Content */}

@@ -26,7 +26,7 @@ interface DashboardProps {
 			id: string;
 			title: string;
 			description?: string;
-			position: { lat: number; lng: number };
+			position?: { lat: number; lng: number };
 		}>;
 		color: string;
 		createdAt: string;

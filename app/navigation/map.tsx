@@ -13,7 +13,13 @@ import "leaflet/dist/leaflet.css";
 
 import { useCallback, useEffect, useState } from "react";
 import { FaLocationArrow, FaMinus, FaPlus } from "react-icons/fa";
-import { uuidv7 } from "uuidv7";
+import { MapContextMenu } from "./MapContextMenu";
+import { 
+	highlightMarkerIcon,
+	initDefaultMarker, 
+	markerAnimationsStyles, 
+	userLocationIcon 
+} from "./MapMarkers";
 
 // Fix for default marker icons in Next.js using public path
 L.Icon.Default.mergeOptions({
@@ -86,10 +92,12 @@ function MarkerSetter({
 	setDisplay,
 	isPickingCardLocation,
 	onCardLocationPicked,
+	onContextMenu,
 }: {
 	setDisplay: (isDisplayed: boolean) => void;
 	isPickingCardLocation: boolean;
 	onCardLocationPicked: (position: LatLng) => void;
+	onContextMenu: (e: L.LeafletMouseEvent) => void;
 }) {
 	useMapEvents({
 		click: (e) => {
@@ -98,6 +106,9 @@ function MarkerSetter({
 			} else {
 				setDisplay(false);
 			}
+		},
+		contextmenu: (e) => {
+			onContextMenu(e);
 		},
 	});
 	return null;
@@ -146,10 +157,10 @@ function LocateUserOnLoad({
 	});
 	useEffect(() => {
 		// Only locate once on mount
-		const hasLocated = (map as any).__hasLocated;
+		const hasLocated = (map as unknown as { __hasLocated?: boolean }).__hasLocated;
 		if (!hasLocated) {
 			map.locate();
-			(map as any).__hasLocated = true;
+			(map as unknown as { __hasLocated?: boolean }).__hasLocated = true;
 		}
 	}, [map]);
 	return null;
@@ -185,7 +196,7 @@ function MapZoomController() {
 	);
 
 	return (
-		<div className="z-[1000] flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-white/80 hover:text-white bg-transparent justify-center items-center hover:bg-white/10 transition rounded-t border-b border-white/10"
@@ -230,7 +241,7 @@ function UserLocationController() {
 	);
 
 	return (
-		<div className="z-[1000] flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-blue-400 hover:text-blue-300 bg-transparent justify-center items-center hover:bg-white/10 transition rounded"
@@ -266,6 +277,7 @@ interface LeafletMapProps {
 	centerLocation?: { lat: number; lng: number };
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
+	onAddPlanFromMap?: (position: LatLng) => void;
 }
 
 export default function LeafletMap({
@@ -276,14 +288,18 @@ export default function LeafletMap({
 	searchResults = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
+	onAddPlanFromMap = () => {},
 }: LeafletMapProps) {
-	const [_highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
+	const [highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
 	const [isHighlighted, setHighlighted] = useState<boolean>(false);
 	const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
-	const [mapId] = useState(() => uuidv7());
 	const [mapCenter, setMapCenter] = useState<
 		{ lat: number; lng: number } | undefined
 	>(centerLocation);
+	const [contextMenu, setContextMenu] = useState<{
+		position: { x: number; y: number };
+		latLng: LatLng;
+	} | null>(null);
 
 	// Khởi tạo default marker override khi component mount
 	useEffect(() => {
@@ -295,6 +311,34 @@ export default function LeafletMap({
 			onCardLocationPicked(position);
 		},
 		[onCardLocationPicked],
+	);
+
+	const handleCursorMove = useCallback(
+		(position: LatLng) => {
+			onCursorMove(position);
+		},
+		[onCursorMove],
+	);
+
+	const handleContextMenu = useCallback((e: L.LeafletMouseEvent) => {
+		e.originalEvent.preventDefault();
+		// Update context menu position directly (opens at new location or replaces existing)
+		setContextMenu({
+			position: { x: e.originalEvent.clientX, y: e.originalEvent.clientY },
+			latLng: e.latlng,
+		});
+		console.log("Context menu opened at:", e.latlng);
+	}, []);
+
+	const handleCloseContextMenu = useCallback(() => {
+		setContextMenu(null);
+	}, []);
+
+	const handleAddToPlan = useCallback(
+		(position: LatLng) => {
+			onAddPlanFromMap(position);
+		},
+		[onAddPlanFromMap],
 	);
 
 	useEffect(() => {
@@ -309,15 +353,27 @@ export default function LeafletMap({
 			console.log('Search results received:', searchResults);
 		}
 	}, [searchResults]);
-
+		
 	return (
 		<div
 			className={`w-full h-full bg-[#1a1a1a] ${
 				isPickingCardLocation ? "cursor-crosshair" : ""
 			}`}
+			onContextMenu={(e) => e.preventDefault()}
+			role="application"
 		>
 			{/* Inject CSS Animations từ file markers */}
 			<style>{markerAnimationsStyles}</style>
+
+			{/* Context Menu */}
+			{contextMenu && (
+				<MapContextMenu
+					position={contextMenu.position}
+					latLng={contextMenu.latLng}
+					onClose={handleCloseContextMenu}
+					onAddToPlan={handleAddToPlan}
+				/>
+			)}
 
 			<MapContainer
 				center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
@@ -335,11 +391,14 @@ export default function LeafletMap({
 
 				<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
-			<LocateUserOnLoad locationSetter={setUserLocation} />
-				<MarkerSetter
+			<LocateUserOnLoad locationSetter={setUserLocation} />			<CursorTracker
+				isPickingCardLocation={isPickingCardLocation}
+				onCursorMove={handleCursorMove}
+			/>				<MarkerSetter
 					setDisplay={setHighlighted}
 					isPickingCardLocation={isPickingCardLocation}
 					onCardLocationPicked={handleCardLocationPicked}
+					onContextMenu={handleContextMenu}
 				/>
 
 				{/* Helper/Highlight Marker */}
@@ -382,7 +441,8 @@ export default function LeafletMap({
 							</div>
 						</Popup>
 					</Marker>			))}
-
+	<UserLocationController />
+		
 			<MapZoomController />
 		</MapContainer>
 	</div>
