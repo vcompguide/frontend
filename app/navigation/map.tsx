@@ -21,7 +21,6 @@ import {
 	userLocationIcon 
 } from "./MapMarkers";
 
-// Fix for default marker icons in Next.js using public path
 L.Icon.Default.mergeOptions({
 	iconUrl: "/leaflet/marker-icon.png",
 	shadowUrl: "/leaflet/marker-shadow.png",
@@ -31,21 +30,16 @@ L.Icon.Default.mergeOptions({
 	shadowSize: [41, 41],
 });
 
-// Cache for custom markers to avoid recreating them
 const markerCache = new Map<string, L.Icon>();
 
-// Create a custom SVG marker icon with data URL
 const createCustomMarker = (color: string = "#3b82f6") => {
-	// Return cached marker if available
 	const cachedMarker = markerCache.get(color);
 	if (cachedMarker) {
 		return cachedMarker;
 	}
 
-	// SVG string for FaMapMarkerAlt pin marker
 	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="${color}"><path d="M192 0C86 0 0 86 0 192c0 127.4 192 320 192 320s192-192.6 192-320c0-106-86-192-192-192zm0 287.6c-52.6 0-96-43.4-96-96s43.4-96 96-96 96 43.4 96 96-43.4 96-96 96z"/></svg>`;
 	
-	// Encode SVG for data URL
 	const encodedSvg = svgString
 		.replace(/"/g, "'")
 		.replace(/</g, "%3C")
@@ -108,7 +102,10 @@ function MarkerSetter({
 			}
 		},
 		contextmenu: (e) => {
-			onContextMenu(e);
+			// Disallow right-clicking when picking location
+			if (!isPickingCardLocation) {
+				onContextMenu(e);
+			}
 		},
 	});
 	return null;
@@ -145,13 +142,16 @@ function DisplayMarker({
 
 function LocateUserOnLoad({
 	locationSetter,
+	onUserLocationChange,
 }: {
 	locationSetter: (LatLng: LatLng) => void;
+	onUserLocationChange?: (location: LatLng) => void;
 }) {
 	const map = useMapEvents({
 		locationfound: (e) => {
 			map.setView(e.latlng, 14);
 			locationSetter(e.latlng);
+			onUserLocationChange?.(e.latlng);
 			// Don't auto-set view - let MapCenterUpdater handle positioning
 		},
 	});
@@ -278,6 +278,7 @@ interface LeafletMapProps {
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
 	onAddPlanFromMap?: (position: LatLng) => void;
+	onUserLocationChange?: (location: LatLng) => void;
 }
 
 export default function LeafletMap({
@@ -289,6 +290,7 @@ export default function LeafletMap({
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
 	onAddPlanFromMap = () => {},
+	onUserLocationChange = () => {},
 }: LeafletMapProps) {
 	const [highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
 	const [isHighlighted, setHighlighted] = useState<boolean>(false);
@@ -391,7 +393,7 @@ export default function LeafletMap({
 
 				<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
-			<LocateUserOnLoad locationSetter={setUserLocation} />			<CursorTracker
+			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />			<CursorTracker
 				isPickingCardLocation={isPickingCardLocation}
 				onCursorMove={handleCursorMove}
 			/>				<MarkerSetter
@@ -419,7 +421,18 @@ export default function LeafletMap({
 								icon={createCustomMarker(card.color)}
 								zIndexOffset={100}
 							>
-								<Popup>{card.title}</Popup>
+								<Popup>
+									<div className="text-sm">
+										<p className="font-semibold mb-2">{card.title}</p>
+										<button
+											type="button"
+											onClick={() => onAddPlanFromMap(card.position!)}
+											className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition"
+										>
+											Add to Route
+										</button>
+									</div>
+								</Popup>
 							</Marker>
 						),
 				)}
@@ -438,6 +451,13 @@ export default function LeafletMap({
 								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
 								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
 								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
+								<button
+									type="button"
+									onClick={() => onAddPlanFromMap(new LatLng(result.lat, result.lng))}
+									className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
+								>
+									Add to Route
+								</button>
 							</div>
 						</Popup>
 					</Marker>			))}

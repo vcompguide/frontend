@@ -40,13 +40,15 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
 	];
 
 	const createRoute = () => {
+		// Cycle through colors based on the current number of routes
+		const colorIndex = routes.length % COLOR_OPTIONS.length;
 		const route: SavedRoute = {
 			id: Math.random().toString(36).substr(2, 9),
 			name: newRouteName.trim() || `New Route ${routes.length + 1}`,
 			distance: "0 km",
 			duration: "0 min",
 			waypointsList: [],
-			color: "#10b981",
+			color: COLOR_OPTIONS[colorIndex],
 			createdAt: new Date().toLocaleDateString(),
 		};
 		const updated = [...routes, route];
@@ -87,7 +89,7 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
 							</div>
 							<div className="flex gap-2">
 								<button type="button" onClick={() => setEditingRouteId(route.id)} className="bg-blue-500/10 text-blue-400 px-4 py-2 rounded-lg flex items-center gap-2 border border-blue-500/20"><FaEdit size={14}/> Edit</button>
-								<button type="button" onClick={() => onImportToPlanner(route)} className="bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-lg flex items-center gap-2 border border-emerald-500/20"><FaDownload/> Import</button>
+								<button type="button" onClick={() => onImportToPlanner?.(route)} className="bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-lg flex items-center gap-2 border border-emerald-500/20"><FaDownload/> Import</button>
 								<button type="button" onClick={() => {
 									const updated = routes.filter(r => r.id !== route.id);
 									setRoutes(updated);
@@ -149,27 +151,6 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
 													style={{backgroundColor: color}}
 												/>
 											))}
-										</div>
-									</div>
-
-									<div className="grid grid-cols-2 gap-3">
-										<div>
-														<label htmlFor="route-distance" className="text-xs text-gray-400 mb-2 block">Distance</label>
-											<input 
-												className="w-full bg-[#2a2a2a] p-3 rounded-lg text-white text-sm" 
-												placeholder="e.g., 5.2 km"
-												value={route.distance}
-												onChange={e => updateRoute(editingRouteId, {distance: e.target.value})}
-											/>
-										</div>
-										<div>
-														<label htmlFor="route-duration" className="text-xs text-gray-400 mb-2 block">Duration</label>
-											<input 
-												className="w-full bg-[#2a2a2a] p-3 rounded-lg text-white text-sm" 
-												placeholder="e.g., 45 min"
-												value={route.duration}
-												onChange={e => updateRoute(editingRouteId, {duration: e.target.value})}
-											/>
 										</div>
 									</div>
 

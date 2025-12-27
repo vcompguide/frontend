@@ -22,6 +22,64 @@ interface MapContextMenuProps {
 	onAddToPlan: (position: LatLng) => void;
 }
 
+// Separate function to fetch address from coordinates
+async function fetchAddress(lat: number, lng: number): Promise<string> {
+	try {
+		const response = await fetch(
+			`http://localhost:9000/api/map/location?lat=${lat}&lng=${lng}`,
+			{
+				headers: {
+					'User-Agent': 'ViComp Navigation App'
+				}
+			}
+		);
+		
+		if (!response.ok) {
+			throw new Error("Failed to fetch address");
+		}
+		
+		const data = await response.json();
+		console.log(data);
+		return data["data"]["address"] || "Unknown address";
+	} catch (err) {
+		console.error("Address fetch error:", err);
+		return "Unknown address";
+	}
+}
+
+// Separate function to fetch weather data
+async function fetchWeather(lat: number, lng: number): Promise<WeatherData | null> {
+	try {
+		const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+		
+		if (!API_KEY) {
+			throw new Error("API key not configured");
+		}
+
+		const response = await fetch(
+			`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${API_KEY}&units=metric`
+		);
+
+		if (!response.ok) {
+			throw new Error("Failed to fetch weather data");
+		}
+
+		const data = await response.json();
+		return {
+			temp: Math.round(data.main.temp),
+			feels_like: Math.round(data.main.feels_like),
+			humidity: data.main.humidity,
+			description: data.weather[0].description,
+			icon: data.weather[0].icon,
+			wind_speed: data.wind.speed,
+			location_name: data.name,
+		};
+	} catch (err) {
+		console.error("Weather fetch error:", err);
+		return null;
+	}
+}
+
 export function MapContextMenu({
 	position,
 	latLng,
@@ -29,51 +87,36 @@ export function MapContextMenu({
 	onAddToPlan,
 }: MapContextMenuProps) {
 	const [weather, setWeather] = useState<WeatherData | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	const [address, setAddress] = useState<string>("");
+	const [isLoadingWeather, setIsLoadingWeather] = useState(true);
+	const [isLoadingAddress, setIsLoadingAddress] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
 
+	// Fetch both address and weather when latLng changes
 	useEffect(() => {
-		fetchWeather();
+		const loadData = async () => {
+			// Fetch address
+			setIsLoadingAddress(true);
+			const addressResult = await fetchAddress(latLng.lat, latLng.lng);
+			setAddress(addressResult);
+			setIsLoadingAddress(false);
+
+			// Fetch weather
+			setIsLoadingWeather(true);
+			setError(null);
+			const weatherResult = await fetchWeather(latLng.lat, latLng.lng);
+			if (weatherResult) {
+				setWeather(weatherResult);
+			} else {
+				setError("Unable to fetch weather data");
+			}
+			setIsLoadingWeather(false);
+		};
+
+		loadData();
 	}, [latLng]);
-
-	const fetchWeather = async () => {
-		setIsLoading(true);
-		setError(null);
-		try {
-			// OpenWeather API Key - use environment variable in production
-			const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
-			
-			if (!API_KEY) {
-				throw new Error("API key not configured");
-			}
-
-			const response = await fetch(
-				`https://api.openweathermap.org/data/2.5/weather?lat=${latLng.lat}&lon=${latLng.lng}&appid=${API_KEY}&units=metric`
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to fetch weather data");
-			}
-
-			const data = await response.json();
-			setWeather({
-				temp: Math.round(data.main.temp),
-				feels_like: Math.round(data.main.feels_like),
-				humidity: data.main.humidity,
-				description: data.weather[0].description,
-				icon: data.weather[0].icon,
-				wind_speed: data.wind.speed,
-				location_name: data.name,
-			});
-		} catch (err) {
-			console.error("Weather fetch error:", err);
-			setError("Unable to fetch weather data");
-		} finally {
-			setIsLoading(false);
-		}
-	};
 
 	// Adjust position based on actual menu dimensions
 	useLayoutEffect(() => {
@@ -140,7 +183,7 @@ export function MapContextMenu({
 				<div className="p-3 border-b border-white/5 flex justify-between items-center">
 					<h3 className="text-sm font-bold text-white flex items-center gap-2">
 						<FaMapMarkerAlt className="text-emerald-500" />
-						Location Menu
+						Menu
 					</h3>
 					<button
 						type="button"
@@ -153,12 +196,20 @@ export function MapContextMenu({
 
 				{/* Coordinates */}
 				<div className="px-3 py-2 bg-white/5 border-b border-white/5">
-					<p className="text-xs text-gray-400">
-						Lat: <span className="text-emerald-400 font-mono">{latLng.lat.toFixed(6)}</span>
-					</p>
-					<p className="text-xs text-gray-400">
-						Lng: <span className="text-emerald-400 font-mono">{latLng.lng.toFixed(6)}</span>
-					</p>
+				{isLoadingAddress ? (
+					<div className="flex items-center gap-2">
+						<FaSpinner className="animate-spin text-emerald-500" size={12} />
+						<p className="text-xs text-gray-400">Loading address...</p>
+					</div>
+				) : (
+					<>
+						{address && (
+							<p className="text-xs text-white font-medium mb-1">
+								{address}
+							</p>
+						)}
+					</>
+				)}
 				</div>
 
 				{/* Weather Section */}
@@ -168,17 +219,17 @@ export function MapContextMenu({
 						<h4 className="text-sm font-semibold text-white">Weather</h4>
 					</div>
 
-					{isLoading && (
-						<div className="flex items-center justify-center py-4">
-							<FaSpinner className="animate-spin text-emerald-500" size={20} />
-						</div>
-					)}
+				{isLoadingWeather && (
+					<div className="flex items-center justify-center py-4">
+						<FaSpinner className="animate-spin text-emerald-500" size={20} />
+					</div>
+				)}
 
-					{error && (
-						<div className="text-xs text-red-400 py-2">{error}</div>
-					)}
+				{error && (
+					<div className="text-xs text-red-400 py-2">{error}</div>
+				)}
 
-					{weather && !isLoading && !error && (
+				{weather && !isLoadingWeather && !error && (
 						<div className="space-y-2">
 							{weather.location_name && (
 								<p className="text-xs font-medium text-gray-300">
