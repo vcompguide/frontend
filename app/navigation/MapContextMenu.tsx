@@ -23,7 +23,7 @@ interface MapContextMenuProps {
 }
 
 // Separate function to fetch address from coordinates
-async function fetchAddress(lat: number, lng: number): Promise<string> {
+export async function fetchAddress(lat: number, lng: number): Promise<string> {
 	try {
 		const response = await fetch(
 			`http://localhost:9000/api/map/location?lat=${lat}&lng=${lng}`,

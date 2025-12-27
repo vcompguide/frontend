@@ -1,8 +1,6 @@
 "use client";
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   Compass,
   Globe,
   Mail,
@@ -142,7 +140,7 @@ export default function Home() {
 
       <main className="container mx-auto px-6 space-y-20 pb-20">
         {/* Hero Section */}
-        <section className="relative rounded-[2.5rem] overflow-hidden h-[600px] w-full flex flex-col items-center justify-center text-center px-4">
+        <section className="relative rounded-[2.5rem] overflow-hidden h-fit w-full flex flex-col items-center justify-center text-center px-4">
           {/* Background Image */}
           <div className="absolute inset-0 z-0">
             {/* <Image 
@@ -172,7 +170,6 @@ export default function Home() {
                 {" "}
                 <Map /> Explore Map
               </Link>
-              {/* <Button variant="secondary" icon={Sparkles} className="h-12 px-8">Build Trip</Button> */}
             </div>
           </div>
         </section>

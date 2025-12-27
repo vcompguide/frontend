@@ -95,6 +95,12 @@ function MarkerSetter({
 }) {
 	useMapEvents({
 		click: (e) => {
+			// Check if click originated from a control button
+			const target = e.originalEvent.target as HTMLElement;
+			if (target.closest('button') || target.closest('.leaflet-control')) {
+				return; // Ignore clicks on control buttons
+			}
+			
 			if (isPickingCardLocation) {
 				onCardLocationPicked(e.latlng);
 			} else {
@@ -102,6 +108,12 @@ function MarkerSetter({
 			}
 		},
 		contextmenu: (e) => {
+			// Check if right-click originated from a control button
+			const target = e.originalEvent.target as HTMLElement;
+			if (target.closest('button') || target.closest('.leaflet-control')) {
+				return; // Ignore right-clicks on control buttons
+			}
+			
 			// Disallow right-clicking when picking location
 			if (!isPickingCardLocation) {
 				onContextMenu(e);
@@ -182,6 +194,7 @@ function MapZoomController() {
 	const handleZoomIn = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			map.zoomIn();
 		},
 		[map],
@@ -190,17 +203,20 @@ function MapZoomController() {
 	const handleZoomOut = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			map.zoomOut();
 		},
 		[map],
 	);
 
 	return (
-		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-white/80 hover:text-white bg-transparent justify-center items-center hover:bg-white/10 transition rounded-t border-b border-white/10"
 				onClick={handleZoomIn}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 			>
 				<FaPlus className="w-full h-full" />
 			</button>
@@ -208,6 +224,8 @@ function MapZoomController() {
 				type="button"
 				className="flex size-fit p-2 text-white/80 hover:text-white bg-transparent justify-center items-center hover:bg-white/10 transition rounded-b"
 				onClick={handleZoomOut}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 			>
 				<FaMinus />
 			</button>
@@ -221,6 +239,7 @@ function UserLocationController() {
 	const handleLocateUser = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
 					const newLocation = new LatLng(
@@ -241,11 +260,13 @@ function UserLocationController() {
 	);
 
 	return (
-		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-blue-400 hover:text-blue-300 bg-transparent justify-center items-center hover:bg-white/10 transition rounded"
 				onClick={handleLocateUser}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 				title="Show my location"
 			>
 				<FaLocationArrow className="w-full h-full" />

@@ -13,7 +13,7 @@ import { type PlannerCard, RouteViewer } from "./RouteViewer";
 import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
 import { SearchBox, type SearchResultMarker } from "./SearchBox";
 import { SettingsScreen } from "./SettingsScreen";
-
+import { fetchAddress } from "./MapContextMenu"
 const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-[#1e1e1e] animate-pulse" />,
@@ -37,6 +37,7 @@ export default function Page() {
   const handleCardsChange = useCallback((cards: PlannerCard[]) => {
     setPlannerCards(cards);
     if (!activeRouteId) return;
+
 
     setSavedRoutes(prev => prev.map(route => {
       if (route.id === activeRouteId) {
@@ -134,21 +135,35 @@ export default function Page() {
     const newCard: PlannerCard = {
       id: Math.random().toString(36).substr(2, 9),
       title: `Plan ${plannerCards.length + 1}`,
-      description: "",
-      priority: "medium",
+      description: "A new card",
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
       createdAt: Date.now(),
     };
+    if (!activeRouteId) {
+      const colorIndex = savedRoutes.length % COLOR_OPTIONS.length;
+      const newRoute: SavedRoute = {
+        id: uuidv7(),
+        name: `New Route ${savedRoutes.length + 1}`,
+        distance: "0 km",
+        duration: "0 min",
+        waypointsList: [],
+        color: COLOR_OPTIONS[colorIndex],
+        createdAt: new Date().toLocaleDateString(),
+      }
+
+      const updatedRoutes = [...savedRoutes, newRoute];
+      setSavedRoutes(updatedRoutes);
+      setActiveRouteId(newRoute.id);
+    }
     const updatedCards = [...plannerCards, newCard];
+
     setPlannerCards(updatedCards);
     handleCardsChange(updatedCards);
   };
 
-  const handleAddPlanFromMap = useCallback((position: LatLng) => {
-    // If no route is active, create and import a new route first
+  const handleAddPlanFromMap = useCallback(async (position: LatLng) => {
     if (!activeRouteId) {
-      // Cycle through colors based on the current number of routes
       const colorIndex = savedRoutes.length % COLOR_OPTIONS.length;
       const newRoute: SavedRoute = {
         id: uuidv7(),
@@ -160,32 +175,23 @@ export default function Page() {
         createdAt: new Date().toLocaleDateString(),
       };
 
-      // Add to saved routes
       const updatedRoutes = [...savedRoutes, newRoute];
       setSavedRoutes(updatedRoutes);
-
-      // Set as active route
       setActiveRouteId(newRoute.id);
-
-      // Center map on the new plan location
-      setMapCenter({ lat: position.lat, lng: position.lng });
-
-      // Open route viewer if closed
       if (!viewerOpen) {
         setViewerOpen(true);
       }
-
-      // Switch to map view
-      setActiveTab("Map View");
+      if (activeTab != "Map View") {
+        setActiveTab("Map View");
+        setMapCenter({ lat: position.lat, lng: position.lng });
+      }
     }
 
-    // Cycle through colors based on the current number of plans
     const colorIndex = plannerCards.length % COLOR_OPTIONS.length;
     const newCard: PlannerCard = {
       id: Math.random().toString(36).substr(2, 9),
       title: `Plan ${plannerCards.length + 1}`,
-      description: "Added from map",
-      priority: "medium",
+      description: await fetchAddress(position.lat, position.lng),
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
       position: position,

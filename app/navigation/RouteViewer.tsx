@@ -42,7 +42,6 @@ export interface PlannerCard {
 	id: string;
 	title: string;
 	description: string;
-	priority: "low" | "medium" | "high";
 	color: string;
 	tags: string[];
 	position?: LatLng;
@@ -702,8 +701,8 @@ function EditModal({
 								onLocationSelected={handleMapClick}
 								initialPosition={selectedLocation}
 							/>
-							{selectedLocation && showNotification && (
-								<div className="absolute top-20  right-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg p-3 z-4000 text-right w-fit h-fit transition-opacity duration-500 opacity-100">
+							{selectedLocation && (
+								<div className={`absolute top-20  right-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg p-3 z-4000 text-right w-fit h-fit transition-opacity duration-500 ${showNotification ? 'opacity-100' : 'opacity-0'}`}>
 									<p className="text-xs font-medium text-emerald-400">
 										✓ Location Selected
 									</p>
