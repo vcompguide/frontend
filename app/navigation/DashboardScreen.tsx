@@ -11,10 +11,8 @@ interface DashboardProps {
 		description: string;
 		position?: { lat: number; lng: number };
 		color: string;
-		priority: "low" | "medium" | "high";
 		tags: string[];
 		finished?: boolean;
-		startTime?: number;
 		createdAt?: number;
 	}>;
 	savedRoutes?: Array<{
@@ -179,11 +177,7 @@ export function DashboardScreen({
 														{card.position.lng.toFixed(2)}
 													</p>
 												)}
-												{card.startTime && (
-													<p className="text-gray-400 text-xs">
-														⏰ {new Date(card.startTime).toLocaleDateString()} at {new Date(card.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-													</p>
-												)}
+
 											</div>
 											<span className="text-gray-400 text-xs whitespace-nowrap">
 												{card.createdAt 

@@ -48,14 +48,99 @@ export async function fetchAddress(lat: number, lng: number): Promise<string> {
 }
 
 // Separate function to fetch weather data
+// ============================================================================
+// TODO: Replace mock data with actual OpenWeatherMap One Call API 3.0
+// API endpoint: https://api.openweathermap.org/data/3.0/onecall
+// Requires: lat, lon, appid, units=metric
+// ============================================================================
 async function fetchWeather(lat: number, lng: number): Promise<WeatherData | null> {
 	try {
 		const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 		
+		// ============================================================================
+		// MOCK DATA - Replace this entire block with actual API call when ready
+		// ============================================================================
 		if (!API_KEY) {
-			throw new Error("API key not configured");
+			console.warn("Weather API key not configured, using mock data");
+			
+			// Mock OpenWeatherMap One Call API 3.0 response
+			const mockApiResponse = {
+				lat: lat,
+				lon: lng,
+				timezone: "Asia/Ho_Chi_Minh",
+				timezone_offset: 25200,
+				current: {
+					dt: Date.now() / 1000,
+					sunrise: Date.now() / 1000 - 3600,
+					sunset: Date.now() / 1000 + 7200,
+					temp: 25 + Math.random() * 10, // 25-35°C
+					feels_like: 24 + Math.random() * 10,
+					pressure: 1013,
+					humidity: 60 + Math.floor(Math.random() * 30), // 60-90%
+					dew_point: 20,
+					uvi: 5,
+					clouds: 40,
+					visibility: 10000,
+					wind_speed: 2 + Math.random() * 6, // 2-8 m/s
+					wind_deg: 180,
+					wind_gust: 5,
+					weather: [
+						{
+							id: 803,
+							main: ["Clear", "Clouds", "Rain", "Drizzle"][Math.floor(Math.random() * 4)],
+							description: [
+								"clear sky",
+								"few clouds", 
+								"scattered clouds",
+								"broken clouds",
+								"light rain",
+								"moderate rain"
+							][Math.floor(Math.random() * 6)],
+							icon: ["01d", "02d", "03d", "04d", "09d", "10d"][Math.floor(Math.random() * 6)]
+						}
+					]
+				}
+			};
+			
+			// Extract data from mock response
+			return {
+				temp: Math.round(mockApiResponse.current.temp),
+				feels_like: Math.round(mockApiResponse.current.feels_like),
+				humidity: mockApiResponse.current.humidity,
+				description: mockApiResponse.current.weather[0].description,
+				icon: mockApiResponse.current.weather[0].icon,
+				wind_speed: Math.round(mockApiResponse.current.wind_speed * 10) / 10,
+				location_name: "Sample Location",
+			};
 		}
+		// ============================================================================
+		// END MOCK DATA
+		// ============================================================================
 
+		// ============================================================================
+		// TODO: Uncomment and use this for production with actual API key
+		// ============================================================================
+		// const response = await fetch(
+		// 	`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&appid=${API_KEY}&units=metric&exclude=minutely,hourly,daily,alerts`
+		// );
+		//
+		// if (!response.ok) {
+		// 	throw new Error("Failed to fetch weather data");
+		// }
+		//
+		// const data = await response.json();
+		// return {
+		// 	temp: Math.round(data.current.temp),
+		// 	feels_like: Math.round(data.current.feels_like),
+		// 	humidity: data.current.humidity,
+		// 	description: data.current.weather[0].description,
+		// 	icon: data.current.weather[0].icon,
+		// 	wind_speed: data.current.wind_speed,
+		// 	location_name: data.timezone || "Unknown",
+		// };
+		// ============================================================================
+
+		// Fallback for legacy API (current weather endpoint)
 		const response = await fetch(
 			`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${API_KEY}&units=metric`
 		);

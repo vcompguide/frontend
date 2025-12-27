@@ -1,6 +1,7 @@
 "use client";
 
-import type { LatLng } from "leaflet";
+import { LatLng } from "leaflet";
+import type { LatLng as LatLngType } from "leaflet";
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 import { FaMap, FaRoute } from "react-icons/fa";
@@ -30,15 +31,73 @@ export default function Page() {
   const [plannerCards, setPlannerCards] = useState<PlannerCard[]>([]);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
+  const [pathPoints, setPathPoints] = useState<LatLng[]>([]);
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
   ]);
 
-  // Bidirectional sync: Update saved routes when viewer cards change
-  const handleCardsChange = useCallback((cards: PlannerCard[]) => {
+  const calculatePathFromCards = useCallback(async (cards: PlannerCard[]): Promise<LatLngType[]> => {
+    // 1. Filter and format the data
+    const cardsWithPositions = cards.filter(card => card.position);
+    const formattedPositions = cardsWithPositions.map(card => ({
+      lat: card.position!.lat,
+      lon: card.position!.lng
+    }));
+
+    // 2. Guard clause: Don't fetch if there aren't enough points
+    if (formattedPositions.length < 2) return [];
+    
+    const JSONToSend = {
+      waypoints: formattedPositions,
+      mode: "driving"
+    };
+    
+    try {
+      const response = await fetch("http://localhost:9000/api/routing", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(JSONToSend)
+      });
+
+      // 3. Check for HTTP errors (404, 500, etc.)
+      if (!response.ok) {
+        throw new Error(`Routing API error: ${response.statusText}`);
+      }
+
+      // 4. Parse the JSON body
+      const routeData = await response.json();
+
+      // 5. Extract and convert coordinates from API response
+      // API returns coordinates as [lng, lat] in geometry.coordinates
+      // We need to convert to Leaflet LatLng objects (lat, lng order)
+      if (!routeData.success || !routeData.data?.geometry?.coordinates) {
+        console.error("Invalid route data structure:", routeData);
+        return [];
+      }
+
+      const coordinates: number[][] = routeData.data.geometry.coordinates;
+      const waypoints: LatLngType[] = coordinates.map((coord: number[]) => {
+        const [lng, lat] = coord;
+        return new LatLng(lat, lng);
+      });
+
+      console.log(`Route calculated: ${waypoints.length} points, ${routeData.data.distance}m, ${routeData.data.duration}s`);
+      return waypoints;
+
+    } catch (error) {
+      console.error("Failed to calculate path:", error);
+      return []; // Return empty path on failure
+    }
+  }, []);
+
+  const handleCardsChange = useCallback(async (cards: PlannerCard[]) => {
     setPlannerCards(cards);
+
+    const newPathPoints = await calculatePathFromCards(cards);
+    setPathPoints(newPathPoints);
+
     if (!activeRouteId) return;
-
-
     setSavedRoutes(prev => prev.map(route => {
       if (route.id === activeRouteId) {
         return {
@@ -50,14 +109,13 @@ export default function Page() {
             location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
             color: c.color,
             finished: c.finished,
-            startTime: c.startTime,
             createdAt: c.createdAt,
           }) as Plan)
         };
       }
       return route;
     }));
-  }, [activeRouteId]);
+  }, [activeRouteId, calculatePathFromCards]);
 
   const handleImportRoute = (route: SavedRoute) => {
     // Load the new route without clearing first to prevent map reset
@@ -71,11 +129,9 @@ export default function Page() {
         title: w.title,
         description: w.description || "",
         position,
-        priority: "medium" as const,
         color: w.color,
         tags: [],
         finished: w.finished,
-        startTime: w.startTime,
         createdAt: w.createdAt,
       };
     });
@@ -188,18 +244,34 @@ export default function Page() {
     }
 
     const colorIndex = plannerCards.length % COLOR_OPTIONS.length;
+    const cardId = uuidv7();
     const newCard: PlannerCard = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: cardId,
       title: `Plan ${plannerCards.length + 1}`,
-      description: await fetchAddress(position.lat, position.lng),
+      description: "Loading address...",
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
       position: position,
       createdAt: Date.now(),
     };
+
+    // Add card immediately without waiting for address
     const updatedCards = [...plannerCards, newCard];
     setPlannerCards(updatedCards);
     handleCardsChange(updatedCards);
+
+    // Fetch address asynchronously and update the card
+    fetchAddress(position.lat, position.lng).then(address => {
+      setPlannerCards(prevCards => {
+        const cardIndex = prevCards.findIndex(c => c.id === cardId);
+        if (cardIndex === -1) return prevCards;
+
+        const updated = [...prevCards];
+        updated[cardIndex] = { ...updated[cardIndex], description: address };
+        handleCardsChange(updated);
+        return updated;
+      });
+    });
 
     // Open route viewer if closed and switch to map view
     if (!viewerOpen) {
@@ -304,6 +376,7 @@ export default function Page() {
                   searchResults={searchResults}
                   onAddPlanFromMap={handleAddPlanFromMap}
                   onUserLocationChange={setUserLocation}
+                  pathPoints={pathPoints}
                 />
               </div>
               <div className="absolute top-0 left-0 right-0 p-6 z-10 flex justify-between pointer-events-none">

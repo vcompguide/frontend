@@ -4,6 +4,7 @@ import L, { LatLng } from "leaflet";
 import {
 	MapContainer,
 	Marker,
+	Polyline,
 	Popup,
 	TileLayer,
 	useMap,
@@ -285,8 +286,8 @@ interface LeafletMapProps {
 		description: string;
 		position?: LatLng;
 		color: string;
-		priority: "low" | "medium" | "high";
 		tags: string[];
+		finished?: boolean;
 	}>;
 	searchResults?: Array<{
 		place_id: number;
@@ -300,6 +301,7 @@ interface LeafletMapProps {
 	initialCenter?: [number, number];
 	onAddPlanFromMap?: (position: LatLng) => void;
 	onUserLocationChange?: (location: LatLng) => void;
+	pathPoints?: LatLng[];
 }
 
 export default function LeafletMap({
@@ -312,6 +314,7 @@ export default function LeafletMap({
 	initialCenter = [10.7725, 106.6980],
 	onAddPlanFromMap = () => {},
 	onUserLocationChange = () => {},
+	pathPoints = [],
 }: LeafletMapProps) {
 	const [highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
 	const [isHighlighted, setHighlighted] = useState<boolean>(false);
@@ -324,7 +327,6 @@ export default function LeafletMap({
 		latLng: LatLng;
 	} | null>(null);
 
-	// Khởi tạo default marker override khi component mount
 	useEffect(() => {
 		initDefaultMarker();
 	}, []);
@@ -432,39 +434,27 @@ export default function LeafletMap({
 					<Popup>You are currently here</Popup>
 				</Marker>
 
-				{/* Plan Card Markers */}
-				{planCards.map(
-					(card) =>
-						card.position && (
-							<Marker
-								key={card.id}
-								position={card.position}
-								icon={createCustomMarker(card.color)}
-								zIndexOffset={100}
-							>
-								<Popup>
-									<div className="text-sm">
-										<p className="font-semibold mb-2">{card.title}</p>
-										<button
-											type="button"
-											onClick={() => onAddPlanFromMap(card.position!)}
-											className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition"
-										>
-											Add to Route
-										</button>
-									</div>
-								</Popup>
-							</Marker>
-						),
+				{/* Golden Path Layer */}
+				{pathPoints.length > 0 && (
+					<Polyline
+						positions={pathPoints}
+						pathOptions={{
+							color: "#FFD700",
+							weight: 5,
+							opacity: 0.8,
+							lineJoin: "round",
+							lineCap: "round",
+						}}
+					/>
 				)}
 
-				{/* Search Result Markers - Render last to appear on top */}
+				{/* Search Result Markers - Render first to appear below plan markers */}
 				{searchResults.length > 0 && searchResults.map((result) => (
 					<Marker
 						key={`search-${result.place_id}`}
 						position={[result.lat, result.lng]}
 						icon={createSearchMarker()}
-						zIndexOffset={1000}
+						zIndexOffset={50}
 						pane="markerPane"
 					>
 						<Popup>
@@ -482,10 +472,43 @@ export default function LeafletMap({
 							</div>
 						</Popup>
 					</Marker>			))}
-	<UserLocationController />
+
+				{/* Plan Card Markers - Render last to appear on top */}
+				{planCards.map(
+					(card) =>
+						card.position && (
+							<Marker
+								key={card.id}
+								position={card.position}
+								icon={createCustomMarker(card.color)}
+								zIndexOffset={100}
+							>
+								<Popup>
+									<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
+										<h3 className="text-white font-bold text-lg mb-2">
+											{card.title}
+										</h3>
+										<p className="text-gray-400 text-xs mb-3 line-clamp-2">
+											{card.description}
+										</p>
+
+										<button
+											type="button"
+											onClick={() => onAddPlanFromMap(card.position!)}
+											className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
+										>
+											Add to Route
+										</button>
+									</div>
+								</Popup>
+							</Marker>
+						),
+				)}
+
+				<UserLocationController />
 		
-			<MapZoomController />
-		</MapContainer>
-	</div>
-);
+				<MapZoomController />
+			</MapContainer>
+		</div>
+	);
 }

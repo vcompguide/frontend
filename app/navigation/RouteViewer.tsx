@@ -46,7 +46,6 @@ export interface PlannerCard {
   tags: string[];
   position?: LatLng;
   finished?: boolean;
-  startTime?: number; // Timestamp for planned start time
   createdAt?: number; // Internal creation time
 }
 
@@ -233,7 +232,6 @@ export function RouteViewer({
           onClose={() => setEditingCardId(null)}
           onSave={(updated) => {
             console.log("Saving card with data:", updated);
-            console.log("Updated startTime:", updated.startTime);
             const list = cards.map((c) => (c.id === updated.id ? updated : c));
             setCards(list);
             onCardsChange?.(list);
@@ -319,19 +317,19 @@ function SortableCard({
   };
 
   return (
-    <div className={`transition-all ${card.finished ? "opacity-60" : ""}`}>
+    <div className={`transition-all ${card.finished ? "brightness-60" : ""}`}>
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className={`p-4 border ${card.position ? "rounded-t-xl" : "rounded-xl"}`}
+        className={`px-4 py-2 border ${card.position ? "rounded-t-xl" : "rounded-xl"}`}
         style={{
           ...style,
           borderColor: `${card.color}40`,
           backgroundColor: `${card.color}10`,
         }}
       >
-        <div className="flex justify-between mb-2">
+        <div className="flex justify-between items-center mb-1">
           <h3
             className={`text-sm font-bold text-white ${card.finished ? "line-through text-gray-500" : ""}`}
           >
@@ -375,25 +373,11 @@ function SortableCard({
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          {card.position && (
+          {/* {card.position && (
             <span className="text-[10px] text-emerald-400">
               📍 Location Set
             </span>
-          )}
-          {card.startTime && (
-            <span className="text-[12px] text-blue-400">
-              ⏰{" "}
-              {new Date(card.startTime).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}{" "}
-              at{" "}
-              {new Date(card.startTime).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -432,7 +416,6 @@ function EditModal({
 
   useEffect(() => {
     console.log("EditModal received card:", card);
-    console.log("Card startTime:", card.startTime);
     setData(card);
     setSelectedLocation(card.position);
   }, [card]);
@@ -699,53 +682,6 @@ function EditModal({
             <span className="text-xs text-gray-400">Mark as complete</span>: <span className = "text-xs text-gray-400"> Mark as pending </span>}
           </div>
 
-          {/* Start Time */}
-          <div className="mb-6">
-            <label
-              htmlFor="start-time"
-              className="text-xs text-gray-400 mb-2 block"
-            >
-              Start Time (Optional)
-            </label>
-            <input
-              id="start-time"
-              type="datetime-local"
-              className="w-full bg-[#2a2a2a] p-3 rounded-lg text-white text-sm scheme-dark"
-              value={data.startTime ? formatDateTimeLocal(data.startTime) : ""}
-              onChange={(e) => {
-                console.log("Input value:", e.target.value);
-                if (e.target.value) {
-                  const timestamp = parseDateTimeLocal(e.target.value);
-                  console.log("Parsed timestamp:", timestamp);
-                  console.log(
-                    "Formatted back:",
-                    formatDateTimeLocal(timestamp),
-                  );
-                  setData({ ...data, startTime: timestamp });
-                } else {
-                  setData({ ...data, startTime: undefined });
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.blur();
-                  return;
-                }
-              }}
-            />
-            {data.startTime && (
-              <p className="text-xs text-gray-400 mt-2">
-                📅 {new Date(data.startTime).toLocaleDateString()} at{" "}
-                {new Date(data.startTime).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            )}
-          </div>
-
           {/* Location Button */}
           <button
             type="button"
@@ -840,6 +776,7 @@ function WeatherDisplay({
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const fetchWeather = useCallback(async () => {
     setIsLoading(true);
@@ -848,7 +785,19 @@ function WeatherDisplay({
       const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
       if (!API_KEY) {
-        throw new Error("API key not configured");
+        console.warn("Weather API key not configured, using mock data");
+        // Return mock weather data
+        setWeather({
+          temp: Math.round(20 + Math.random() * 15),
+          feels_like: Math.round(18 + Math.random() * 15),
+          humidity: Math.round(40 + Math.random() * 40),
+          description: ["clear sky", "few clouds", "scattered clouds", "partly cloudy"][Math.floor(Math.random() * 4)],
+          icon: "01d",
+          wind_speed: Math.round((2 + Math.random() * 8) * 10) / 10,
+          location_name: planName,
+        });
+        setIsLoading(false);
+        return;
       }
 
       const response = await fetch(
@@ -875,7 +824,7 @@ function WeatherDisplay({
     } finally {
       setIsLoading(false);
     }
-  }, [position]);
+  }, [position, planName]);
 
   useEffect(() => {
     fetchWeather();
@@ -891,10 +840,16 @@ function WeatherDisplay({
         borderTopWidth: "2px",
       }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold" style={{ color: cardColor }}>
+      <div className={ `flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}` }>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex items-center gap-1 text-xs font-semibold hover:opacity-70 transition"
+          style={{ color: cardColor }}
+        >
+          <span className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`}>▶</span>
           ☁️ Weather at {planName}
-        </h4>
+        </button>
         <button
           type="button"
           onClick={fetchWeather}
@@ -907,15 +862,17 @@ function WeatherDisplay({
         </button>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-3">
-          <FaSpinner className="animate-spin text-emerald-500" size={16} />
-        </div>
-      )}
+      {!isCollapsed && (
+        <>
+          {isLoading && (
+            <div className="flex items-center justify-center py-3">
+              <FaSpinner className="animate-spin text-emerald-500" size={16} />
+            </div>
+          )}
 
-      {error && <div className="text-xs text-red-400 py-2">{error}</div>}
+          {error && <div className="text-xs text-red-400 py-2">{error}</div>}
 
-      {weather && !isLoading && !error && (
+          {weather && !isLoading && !error && (
         <div className="space-y-2">
           {weather.location_name && (
             <p className="text-xs font-medium text-gray-300">
@@ -979,6 +936,8 @@ function WeatherDisplay({
             </div>
           </div>
         </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -1037,7 +996,6 @@ function LocationPickerMap({
                 description: "",
                 position: selectedMarker,
                 color: "#10b981",
-                priority: "high" as const,
                 tags: [],
               },
             ]

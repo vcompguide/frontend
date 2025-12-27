@@ -118,7 +118,7 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
               if (e.key === 'Enter') 
                 createRoute();
             }} />
-            <button type="button" onClick={createRoute} className="w-full bg-emerald-500 text-white py-3 rounded-lg font-bold">Create Route</button>
+            <button type="button" onClick={createRoute} className="w-full bg-emerald-500 text-white py-3 rounded-lg font-bold hover:brightness-90">Create Route</button>
           </div>
         </div>
       )}
