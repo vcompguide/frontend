@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthContext";
 
-export function AuthScreen() {
+export function AuthScreen({ onSuccess }: { onSuccess?: () => void } = {}) {
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -29,6 +29,10 @@ export function AuthScreen() {
       } else {
         await login(email, password);
       }
+      // Call onSuccess callback if provided (for modal closing)
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
@@ -37,7 +41,7 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="w-full h-screen bg-[#0f1110] flex items-center justify-center p-4">
+    <div className="w-full bg-[#0f1110] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8">

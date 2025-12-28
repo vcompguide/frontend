@@ -8,9 +8,13 @@ import {
   Menu,
   Sparkles,
   ThumbsUp,
+  User,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import React, { useState } from "react";
+import { useAuth } from "./navigation/AuthContext";
+import { AuthScreen } from "./navigation/AuthScreen";
 
 // --- Components ---
 
@@ -19,11 +23,13 @@ const Button = ({
   variant = "primary",
   className = "",
   icon: Icon,
+  onClick,
 }: {
   children: React.ReactNode;
   variant?: "primary" | "secondary" | "ghost" | "outline";
   className?: string;
   icon?: React.ElementType;
+  onClick?: () => void;
 }) => {
   const baseStyle =
     "px-6 py-2.5 rounded-full font-medium transition-all duration-200 flex items-center gap-2 text-sm";
@@ -42,6 +48,7 @@ const Button = ({
     <button
       type="button"
       className={`${baseStyle} ${variants[variant]} ${className}`}
+      onClick={onClick}
     >
       {Icon && <Icon size={16} />}
       {children}
@@ -91,7 +98,7 @@ const DestinationCard = ({
       fill 
       className="object-cover group-hover:scale-105 transition-transform duration-500"
     /> */}
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90" />
+    <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-90" />
     <div className="absolute bottom-6 left-6">
       <h3 className="text-white text-xl font-bold">{title}</h3>
       <p className="text-[#00D26A] text-sm">{subtitle}</p>
@@ -102,8 +109,33 @@ const DestinationCard = ({
 // --- Main Page ---
 
 export default function Home() {
+  const { user, logout, isLoading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#081212] text-white font-sans selection:bg-[#00D26A] selection:text-black" onContextMenu={(e) => e.preventDefault()}>
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-md w-full">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <AuthScreen onSuccess={handleAuthSuccess} />
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="container mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -119,17 +151,56 @@ export default function Home() {
           <Link href="/navigation" className="hover:text-white transition-colors">
             Destinations
           </Link>
-          <Link href="#" className="hover:text-white transition-colors">
+          <Link href="/features" className="hover:text-white transition-colors">
             Features
           </Link>
-          <Link href="#" className="hover:text-white transition-colors">
+          <Link href="/about" className="hover:text-white transition-colors">
             About
           </Link>
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost">Login</Button>
-          <Button variant="primary">Sign Up</Button>
+          {isLoading ? (
+            <div className="w-20 h-10 bg-white/5 rounded-full animate-pulse"></div>
+          ) : user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#00D26A]/10 border border-[#00D26A]/20 hover:bg-[#00D26A]/20 transition-all"
+              >
+                <User size={16} className="text-[#00D26A]" />
+                <span className="text-white text-sm font-medium">{user.name}</span>
+              </button>
+              
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-[#132020] border border-white/10 rounded-xl shadow-xl py-2 z-50">
+                  <Link
+                    href="/navigation"
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <User size={16} />
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setShowUserMenu(false);
+                    }}
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm w-full text-left text-red-400"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setShowAuthModal(true)}>Login</Button>
+              <Button variant="primary" onClick={() => setShowAuthModal(true)}>Sign Up</Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Icon */}
@@ -268,10 +339,10 @@ export default function Home() {
               <Globe size={20} />
             </div>
             <span className="font-bold text-sm tracking-tight text-gray-300">
-              Virtual Tour Guide
+              Virtual Trip Consultant
             </span>
           </div>
-
+          {/*
           <div className="flex gap-8 text-xs text-gray-500">
             <Link href="#" className="hover:text-white">
               Privacy Policy
@@ -283,18 +354,19 @@ export default function Home() {
               Support
             </Link>
           </div>
-
+          */}
+          {/*
           <div className="flex gap-4 text-gray-400">
             <Mail size={16} className="hover:text-[#00D26A] cursor-pointer" />
             <ThumbsUp
               size={16}
               className="hover:text-[#00D26A] cursor-pointer"
             />
+          </div>*/}
+        </div>
+          <div className="text-center text-[10px] text-gray-600 mt-8">
+            © 2025 Virtual Trip Consultant Inc.
           </div>
-        </div>
-        <div className="text-center text-[10px] text-gray-600 mt-8">
-          © 2025 VCompGuide Inc.
-        </div>
       </footer>
     </div>
   );
