@@ -431,11 +431,26 @@ export default function LeafletMap({
 
 				{/* User Location */}
 				<Marker position={userLocation} icon={userLocationIcon}>
-					<Popup>You are currently here</Popup>
-				</Marker>
+				<Popup>
+					<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
+						<h3 className="text-white font-bold text-lg mb-2">
+							📍 Your Location
+						</h3>
+						<p className="text-gray-400 text-xs mb-3">
+							You are currently here
+						</p>
 
-				{/* Golden Path Layer */}
-				{pathPoints.length > 0 && (
+						<button
+							type="button"
+							onClick={() => onAddPlanFromMap(userLocation)}
+							className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
+						>
+							Add to Route
+						</button>
+			</div>
+		</Popup>
+	</Marker>
+			{pathPoints.length > 0 && (
 					<Polyline
 						positions={pathPoints}
 						pathOptions={{
