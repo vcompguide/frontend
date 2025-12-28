@@ -21,6 +21,7 @@ import {
 	markerAnimationsStyles, 
 	userLocationIcon 
 } from "./MapMarkers";
+import { AMENITY_TAGS, getAmenityIcon } from "../../components/filters/TagFilters";
 
 L.Icon.Default.mergeOptions({
 	iconUrl: "/leaflet/marker-icon.png",
@@ -65,6 +66,45 @@ const createCustomMarker = (color: string = "#3b82f6") => {
 // Create a distinct search result marker (same style as plan markers)
 const createSearchMarker = () => {
 	return createCustomMarker("#00d492"); // Amber color for search results
+};
+
+// Create POI marker with Material Symbol icon
+const createPOIMarkerIcon = (poiType: string) => {
+	console.log('[Map] Creating POI marker for type:', poiType);
+	
+	// Use the helper function to get icon/color for any amenity type
+	const { icon: iconName, color } = getAmenityIcon(poiType);
+	console.log('[Map] Using icon:', iconName, 'color:', color);
+
+	const html = `
+		<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+			<div style="
+				position: absolute;
+				width: 40px;
+				height: 40px;
+				background: ${color};
+				border-radius: 50% 50% 50% 0;
+				transform: rotate(-45deg);
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+				border: 3px solid white;
+			"></div>
+			<span class="material-symbols-outlined" style="
+				position: relative;
+				color: white;
+				font-size: 20px;
+				z-index: 1;
+				text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+			">${iconName}</span>
+		</div>
+	`;
+
+	return L.divIcon({
+		html,
+		className: "poi-marker",
+		iconSize: [40, 40],
+		iconAnchor: [20, 40],
+		popupAnchor: [0, -40],
+	});
 };
 
 // Component to handle map center changes
@@ -296,6 +336,14 @@ interface LeafletMapProps {
 		lng: number;
 		type: string;
 	}>;
+	pois?: Array<{
+		id: string;
+		name: string;
+		lat: number;
+		lng: number;
+		type: string;
+		address?: string;
+	}>;
 	centerLocation?: { lat: number; lng: number };
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
@@ -310,6 +358,7 @@ export default function LeafletMap({
 	onCursorMove = () => {},
 	planCards = [],
 	searchResults = [],
+	pois = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
 	onAddPlanFromMap = () => {},
@@ -330,6 +379,13 @@ export default function LeafletMap({
 	useEffect(() => {
 		initDefaultMarker();
 	}, []);
+
+	// Log POIs for debugging
+	useEffect(() => {
+		if (pois.length > 0) {
+			console.log('[Map] Rendering', pois.length, 'POI markers:', pois.map(p => ({ id: p.id, name: p.name, type: p.type })));
+		}
+	}, [pois]);
 
 	const handleCardLocationPicked = useCallback(
 		(position: LatLng) => {
@@ -429,6 +485,11 @@ export default function LeafletMap({
 				{/* Helper/Highlight Marker */}
 				<DisplayMarker displayed={isHighlighted} position={highlightPosition} />
 
+				{/* Context Menu Marker - Shows when context menu is open */}
+				{contextMenu && (
+					<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
+				)}
+
 				{/* User Location */}
 				<Marker position={userLocation} icon={userLocationIcon}>
 				<Popup>
@@ -488,37 +549,62 @@ export default function LeafletMap({
 						</Popup>
 					</Marker>			))}
 
-				{/* Plan Card Markers - Render last to appear on top */}
-				{planCards.map(
-					(card) =>
-						card.position && (
-							<Marker
-								key={card.id}
-								position={card.position}
-								icon={createCustomMarker(card.color)}
-								zIndexOffset={100}
+				{/* POI Markers - Filtered amenities */}
+				{pois.length > 0 && pois.map((poi) => (
+					<Marker
+						key={`poi-${poi.id}`}
+						position={[poi.lat, poi.lng]}
+					icon={createPOIMarkerIcon(poi.type)}
+					zIndexOffset={60}
+					pane="markerPane"
+				>
+					<Popup>
+						<div className="text-sm">
+							<p className="font-semibold text-gray-900">{poi.name}</p>
+							{poi.address && (
+								<p className="text-xs text-gray-600 mt-1">{poi.address}</p>
+							)}
+							<p className="text-xs text-emerald-600 mt-1 font-medium capitalize">{poi.type.replace(/_/g, ' ')}</p>
+							<button
+								type="button"
+								onClick={() => onAddPlanFromMap(new LatLng(poi.lat, poi.lng))}
+								className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
 							>
-								<Popup>
-									<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
-										<h3 className="text-white font-bold text-lg mb-2">
-											{card.title}
-										</h3>
-										<p className="text-gray-400 text-xs mb-3 line-clamp-2">
-											{card.description}
-										</p>
+								Add to Route
+							</button>
+						</div>
+					</Popup>
+				</Marker>
+			))}
 
-										<button
-											type="button"
-											onClick={() => onAddPlanFromMap(card.position!)}
-											className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
-										>
-											Add to Route
-										</button>
-									</div>
-								</Popup>
-							</Marker>
-						),
-				)}
+			{/* Plan Card Markers - Render last to appear on top */}
+			{planCards.map(
+				(card) =>
+					card.position && (
+						<Marker
+							key={card.id}
+							position={card.position}
+							icon={createCustomMarker(card.color)}
+							zIndexOffset={100}
+						>
+							<Popup>
+								<div className="text-sm">
+									<p className="font-semibold text-gray-900">{card.title}</p>
+									<p className="text-gray-400 text-xs mb-3 line-clamp-2">
+										{card.description}
+									</p>
+									<button
+										type="button"
+										onClick={() => onAddPlanFromMap(card.position!)}
+										className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
+									>
+										Add to Route
+									</button>
+								</div>
+							</Popup>
+						</Marker>
+					),
+			)}
 
 				<UserLocationController />
 		
