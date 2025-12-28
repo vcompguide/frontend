@@ -45,6 +45,8 @@ function NavigationContent() {
   const [segmentDistances, setSegmentDistances] = useState<{ [key: string]: number }>({}); // Map of "fromId-toId" -> distance in meters
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+  const [poiMarkers, setPOIMarkers] = useState<SearchResultMarker[]>([]);
+  const [selectedPOIType, setSelectedPOIType] = useState<string | null>(null);
 
   // Debug: Log user state
   useEffect(() => {
@@ -536,6 +538,56 @@ function NavigationContent() {
     setPois(results);
   }, []);
 
+  const fetchPOIsByType = useCallback(async (type: string) => {
+    if (!userLocation) {
+      console.log('User location not available');
+      return;
+    }
+
+    try {
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+          },
+        }),
+      });
+
+      const response = await api.gmaps.gmapsControllerGetNearbyPlaces({
+        location: {
+          lat: userLocation.lat,
+          lon: userLocation.lng,
+        },
+        type: type as any,
+        radius: 5000, // 5km radius
+      });
+
+      console.log('POI response:', response.data);
+
+      // Convert to SearchResultMarker format
+      if (response.data && (response.data as any).places) {
+        const places = (response.data as any).places as any[];
+        const markers: SearchResultMarker[] = places.map((place: any, index: number) => ({
+          place_id: index,
+          display_name: place.name,
+          lat: place.location?.y || place.location?.lat,
+          lng: place.location?.x || place.location?.lng,
+          type: type,
+        }));
+        setPOIMarkers(markers);
+        setSelectedPOIType(type);
+      }
+    } catch (error) {
+      console.error('Failed to fetch POIs:', error);
+    }
+  }, [userLocation]);
+
+  const clearPOIs = useCallback(() => {
+    setPOIMarkers([]);
+    setSelectedPOIType(null);
+  }, []);
+
   const handleClearPath = useCallback(() => {
     setPathPoints([]);
     setRouteDistance("0 km");
@@ -582,6 +634,79 @@ function NavigationContent() {
             <SidebarItem icon={<MdDashboard />} label="Dashboard" active={activeTab === "Dashboard"} onClick={() => setActiveTab("Dashboard")} />
             <SidebarItem icon={<FaMap />} label="Map View" active={activeTab === "Map View"} onClick={() => setActiveTab("Map View")} />
             <SidebarItem icon={<FaRoute />} label="Saved Routes" active={activeTab === "Saved"} onClick={() => setActiveTab("Saved")} />
+
+            {/* POI Filters Section */}
+            <div className="mt-6 pt-4 border-t border-gray-800">
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">City-wide POIs</p>
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'restaurant' ? clearPOIs() : fetchPOIsByType('restaurant')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'restaurant'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🍽️ Restaurants
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'cafe' ? clearPOIs() : fetchPOIsByType('cafe')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'cafe'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  ☕ Cafes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'tourist_attraction' ? clearPOIs() : fetchPOIsByType('tourist_attraction')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'tourist_attraction'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🏛️ Attractions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'lodging' ? clearPOIs() : fetchPOIsByType('lodging')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'lodging'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🏨 Hotels
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'shopping_mall' ? clearPOIs() : fetchPOIsByType('shopping_mall')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'shopping_mall'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🛍️ Shopping
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'park' ? clearPOIs() : fetchPOIsByType('park')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                    selectedPOIType === 'park'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🌳 Parks
+                </button>
+              </div>
+            </div>
 
             {activeRoute && (
               <div className="mt-8 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
@@ -635,7 +760,7 @@ function NavigationContent() {
                   onCardLocationPicked={onLocationPicked}
                   planCards={plannerCards}
                   centerLocation={mapCenter}
-                  searchResults={searchResults}
+                  searchResults={[...searchResults, ...poiMarkers]}
                   pois={pois}
                   onAddPlanFromMap={handleAddPlanFromMap}
                   onUserLocationChange={setUserLocation}

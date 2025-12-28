@@ -93,8 +93,131 @@ export function ChatBox() {
 	
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 	const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+	const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
 	const chatContentRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const lastSavedMessageCountRef = useRef<number>(0);
+
+	// Load chat history on mount
+	useEffect(() => {
+		const loadChatHistory = async () => {
+			const chatId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+			if (!chatId) return;
+
+			setIsLoadingChat(true);
+			try {
+				const api = new Sdk({
+					baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+					securityWorker: async () => ({
+						headers: {
+							Authorization: `Bearer ${chatId}`,
+						},
+					}),
+				});
+
+				const { data } = await api.chat.chatControllerGetChatById(chatId);
+			console.log("[Chat Load] ========== LOADING CHAT HISTORY ==========");
+			console.log("[Chat Load] Chat ID:", chatId);
+			console.log("[Chat Load] Chat ID type:", typeof chatId);
+			console.log("[Chat Load] Number of messages from API:", data.chatHistory?.length || 0);
+			console.log(data);
+			if (data.chatHistory && data.chatHistory.length > 0) {
+				// Log all unique senderIds to understand the data
+				const uniqueSenderIds = [...new Set(data.chatHistory.map(m => m.senderId))];
+				console.log("[Chat Load] Unique sender IDs in chat:", uniqueSenderIds);
+				
+				// Convert MessageResponse to Message format
+				const loadedMessages: Message[] = data.chatHistory.map((msg, index) => {
+					const isUser = msg.senderId === chatId;
+					const isChatbot = msg.senderId === "chatbot";
+					console.log(`[Chat Load] Message ${index}:`);
+					console.log(`  - senderId: "${msg.senderId}" (type: ${typeof msg.senderId})`);
+					console.log(`  - chatId: "${chatId}" (type: ${typeof chatId})`);
+					console.log(`  - senderId === chatId: ${isUser}`);
+					console.log(`  - senderId === "chatbot": ${isChatbot}`);
+					console.log(`  - Assigned role: ${isUser ? "user" : "chatbot"}`);
+					console.log(`  - Content preview: "${msg.content.substring(0, 50)}..."`);
+					
+					return {
+						id: `loaded-${index}`,
+						content: msg.content,
+						type: "Question",
+						role: isUser ? "user" : "chatbot",
+					};
+				});
+				
+				console.log("[Chat Load] Final loaded messages with roles:");
+				loadedMessages.forEach((msg, i) => {
+					console.log(`  ${i}: ${msg.role} - "${msg.content.substring(0, 30)}..."`);
+				});
+				console.log("[Chat Load] ========== LOADING COMPLETE ==========");
+				
+				setMessageList(loadedMessages);
+				lastSavedMessageCountRef.current = loadedMessages.length;
+			}
+			} catch (error) {
+				console.error("Error loading chat history:", error);
+			} finally {
+				setIsLoadingChat(false);
+			}
+		};
+
+		loadChatHistory();
+	}, []);
+
+	// Save new messages to backend
+	useEffect(() => {
+		if (isLoadingChat) return;
+		if (messageList.length === 0) return;
+		if (messageList.length <= lastSavedMessageCountRef.current) return;
+
+		const saveChatMessages = async () => {
+			const chatId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+			if (!chatId) return;
+
+			try {
+				const api = new Sdk({
+					baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+					securityWorker: async () => ({
+						headers: {
+							Authorization: `Bearer ${chatId}`,
+						},
+					}),
+				});
+
+				// Save only new messages (those not yet saved)
+				const newMessages = messageList.slice(lastSavedMessageCountRef.current);
+			console.log(`[Chat Save] Saving ${newMessages.length} new message(s)`);
+			console.log("[Chat Save] Messages to save:", newMessages);
+			
+			for (const message of newMessages) {
+				// Use different senderId for user vs chatbot to distinguish them when loading
+				console.log(`[Chat Save] Processing message:`, message);
+				console.log(`[Chat Save]   - message.role: "${message.role}" (type: ${typeof message.role})`);
+				console.log(`[Chat Save]   - message.role === "user": ${message.role === "user"}`);
+				console.log(`[Chat Save]   - message.role === "chatbot": ${message.role === "chatbot"}`);
+				
+				const senderId = message.role === "user" ? chatId : "chatbot";
+				console.log(`[Chat Save]   - Determined senderId: "${senderId}"`);
+				console.log(`[Chat Save]   - Content: "${message.content.substring(0, 50)}..."`);
+				
+				await api.chat.chatControllerSaveMessage({
+					chatId,
+					senderId,
+					content: message.content,
+				});
+			}
+
+			lastSavedMessageCountRef.current = messageList.length;
+			console.log(`[Chat Save] Successfully saved ${newMessages.length} message(s)`);
+			} catch (error) {
+				console.error("Error saving chat messages:", error);
+			}
+		};
+
+		const timeoutId = setTimeout(saveChatMessages, 1000);
+		return () => clearTimeout(timeoutId);
+	}, [messageList, isLoadingChat]);
 
 	useEffect(() => {
 		if (chatContentRef.current) {
@@ -260,8 +383,15 @@ export function ChatBox() {
 
 	const confirmClear = () => {
 		if (activeTab === "chat") {
+			// Clear local chat messages
 			setMessageList([]);
 			setConversationHistory([]);
+			lastSavedMessageCountRef.current = 0;
+			
+			// Note: Backend doesn't provide a delete endpoint for chat history.
+			// Old messages remain on server but won't be loaded in new sessions.
+			// To start fresh, the backend would need to implement a DELETE endpoint.
+			console.log("[Chat Clear] Local chat cleared. Note: Server-side messages are not deleted (no API endpoint available).");
 		} else if (activeTab === "recommendation") {
 			setLocation("");
 			setCategory("restaurants");
@@ -403,7 +533,7 @@ export function ChatBox() {
 							className={`${messageList.length > 0 ? "p-4" : "p-0"} space-y-4 overflow-y-auto flex-1`}
 						>
 							{messageList.map((msg) =>
-								msg.type === "Answer" ? (
+								msg.role === "chatbot" ? (
 									<BotMessage key={msg.id} message={msg.content} />
 								) : (
 									<UserMessage key={msg.id} message={msg.content} />
