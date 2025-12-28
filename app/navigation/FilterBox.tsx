@@ -129,12 +129,16 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 				console.log('[FilterBox] Bulk location API Response:', data);
 				// Flatten grouped data into single array
 				const poisArray: POIResult[] = [];
-				if (data.data && typeof data.data === 'object') {
-					for (const category in data.data) {
-						const categoryPOIs = data.data[category];
-						console.log(`[FilterBox] Processing category ${category}:`, categoryPOIs);
-						if (Array.isArray(categoryPOIs)) {
-							poisArray.push(...categoryPOIs);
+				if (data.data && Array.isArray(data.data)) {
+					for (const location of data.data) {
+						if (location.places && typeof location.places === 'object') {
+							for (const category in location.places) {
+								const categoryPOIs = location.places[category];
+								console.log(`[FilterBox] Processing category ${category}:`, categoryPOIs);
+								if (Array.isArray(categoryPOIs)) {
+									poisArray.push(...categoryPOIs);
+								}
+							}
 						}
 					}
 				}
@@ -191,7 +195,7 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 					</div>
 
 					{/* Content */}
-					<div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+					<div className="p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
 						{/* Tags Section */}
 						<div>
 							<label className="text-xs font-semibold text-gray-300 mb-2 block uppercase tracking-wider">
@@ -248,33 +252,191 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 							</div>
 						</div>
 
-						{/* Radius Slider */}
+						{/* Radius Slider - Horizontal */}
 						<div>
-							<label className="text-xs font-semibold text-gray-300 mb-2 block uppercase tracking-wider">
+							<label className="text-xs font-semibold text-gray-300 mb-3 block uppercase tracking-wider">
 								Search Radius
 							</label>
-							<div className="space-y-2">
-								<input
-									type="range"
-									min="1"
-									max="5000"
-									value={radius}
-									onChange={(e) => setRadius(Number(e.target.value))}
-									className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-								/>
-								<div className="flex items-center gap-2">
+							<div className="space-y-3">
+								{/* Large display badge */}
+								<div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border-2 border-emerald-500/40 rounded-xl p-4 text-center backdrop-blur-sm">
+									<div className="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wider">Current Radius</div>
+									<div className="text-3xl font-bold text-white mb-1">
+										{radius >= 1000 ? (radius / 1000).toFixed(1) : radius}
+									</div>
+									<div className="text-sm text-emerald-300 font-medium">
+										{radius >= 1000 ? 'kilometers' : 'meters'}
+									</div>
+								</div>
+								
+								{/* Horizontal slider container */}
+								<div className="relative py-2">
 									<input
-										type="number"
-										min="1"
+										type="range"
+										min="100"
 										max="5000"
+										step="50"
 										value={radius}
 										onChange={(e) => setRadius(Number(e.target.value))}
-										className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
+										className="horizontal-slider w-full h-2 appearance-none cursor-pointer rounded-full"
 									/>
-									<span className="text-sm text-gray-400 font-medium">meters</span>
+									{/* Markers below slider */}
+									<div className="flex justify-between mt-2 px-1">
+										<span className="text-[10px] text-gray-400">1m</span>
+										<span className="text-[10px] text-gray-500">1km</span>
+										<span className="text-[10px] text-gray-500">2.5km</span>
+										<span className="text-[10px] text-emerald-400 font-semibold">5km</span>
+									</div>
+								</div>
+								
+								{/* Number input */}
+								<div className="relative">
+									<input
+									type="text"
+									inputMode="numeric"
+									value={radius === 0 ? '' : radius}
+									onChange={(e) => {
+										const value = e.target.value;
+										// Only accept digits, allow empty for deletion
+										if (value === '') {
+											setRadius(0);
+										} else if (/^\d+$/.test(value)) {
+											setRadius(parseInt(value, 10));
+										}
+									}}
+									onBlur={(e) => {
+										// Validate and enforce constraints when done editing
+										const value = e.target.value;
+										const numValue = parseInt(value, 10);
+										if (isNaN(numValue) || numValue < 1) {
+											setRadius(1);
+										} else if (numValue > 5000) {
+											setRadius(5000);
+										} else {
+											setRadius(numValue);
+										}
+										}}
+										className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+									/>
+								</div>
+								<div className="grid grid-cols-4 gap-2">
+									{[500, 1000, 2000, 3000].map((preset) => (
+										<button
+											key={preset}
+											type="button"
+											onClick={() => setRadius(preset)}
+											className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+												radius === preset
+													? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+													: 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10'
+											}`}
+										>
+											{preset >= 1000 ? `${preset / 1000}km` : `${preset}m`}
+										</button>
+									))}
 								</div>
 							</div>
 						</div>
+						
+						<style jsx>{`
+							.custom-scrollbar::-webkit-scrollbar {
+								width: 8px;
+							}
+							
+							.custom-scrollbar::-webkit-scrollbar-track {
+								background: rgba(255, 255, 255, 0.05);
+								border-radius: 10px;
+								margin: 4px 0;
+							}
+							
+							.custom-scrollbar::-webkit-scrollbar-thumb {
+								background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+								border-radius: 10px;
+								border: 2px solid rgba(30, 30, 30, 0.5);
+								transition: all 0.3s ease;
+							}
+							
+							.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+								background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+								border-color: rgba(30, 30, 30, 0.3);
+								box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+							}
+							
+							.custom-scrollbar::-webkit-scrollbar-thumb:active {
+								background: linear-gradient(180deg, #059669 0%, #047857 100%);
+							}
+							
+							/* Firefox scrollbar */
+							.custom-scrollbar {
+								scrollbar-width: thin;
+								scrollbar-color: #10b981 rgba(255, 255, 255, 0.05);
+							}
+						
+							.horizontal-slider {
+								background: linear-gradient(to right, 
+									#10b981 0%, 
+									#10b981 ${((radius - 100) / 4900) * 100}%, 
+									rgba(255,255,255,0.1) ${((radius - 100) / 4900) * 100}%, 
+									rgba(255,255,255,0.1) 100%
+								);
+								outline: none;
+								box-shadow: inset 0 1px 4px rgba(0,0,0,0.3), 0 0 10px rgba(16, 185, 129, 0.2);
+							}
+							
+							.horizontal-slider::-webkit-slider-thumb {
+								-webkit-appearance: none;
+								appearance: none;
+								width: 24px;
+								height: 24px;
+								background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+								border: 3px solid rgba(255, 255, 255, 0.95);
+								border-radius: 50%;
+								cursor: pointer;
+								box-shadow: 
+									0 4px 12px rgba(16, 185, 129, 0.5),
+									0 0 0 0 rgba(16, 185, 129, 0.4),
+									inset 0 1px 0 rgba(255,255,255,0.3);
+								transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+							}
+							
+							.horizontal-slider::-webkit-slider-thumb:hover {
+								transform: scale(1.2);
+								box-shadow: 
+									0 6px 16px rgba(16, 185, 129, 0.7),
+									0 0 0 6px rgba(16, 185, 129, 0.15),
+									inset 0 1px 0 rgba(255,255,255,0.4);
+								border-width: 4px;
+							}
+							
+							.horizontal-slider::-webkit-slider-thumb:active {
+								transform: scale(1.1);
+								box-shadow: 
+									0 2px 8px rgba(16, 185, 129, 0.9),
+									0 0 0 8px rgba(16, 185, 129, 0.25),
+									inset 0 1px 0 rgba(255,255,255,0.5);
+							}
+							
+							.horizontal-slider::-moz-range-thumb {
+								width: 24px;
+								height: 24px;
+								background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+								border: 3px solid rgba(255, 255, 255, 0.95);
+								border-radius: 50%;
+								cursor: pointer;
+								box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+								transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+							}
+							
+							.horizontal-slider::-moz-range-thumb:hover {
+								transform: scale(1.2);
+								box-shadow: 0 6px 16px rgba(16, 185, 129, 0.7);
+							}
+							
+							.horizontal-slider::-moz-range-track {
+								background: transparent;
+								border: none;
+							}
+						`}</style>
 					</div>
 
 					{/* Footer Actions */}
