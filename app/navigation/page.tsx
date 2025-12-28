@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { FaMap, FaRoute } from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
 import { uuidv7 } from "uuidv7";
+import { useRouter } from "next/navigation";
 import { ChatBox } from "./chat";
 import { DashboardScreen } from "./DashboardScreen";
 import { FilterBox, type POIResult } from "./FilterBox";
@@ -18,6 +19,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { fetchAddress } from "./MapContextMenu";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { AuthScreen } from "./AuthScreen";
+import Link from "next/link";
 const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-[#1e1e1e] animate-pulse" />,
@@ -43,7 +45,7 @@ function NavigationContent() {
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
   ]);
 
-  const calculatePathFromCards = useCallback(async (cards: PlannerCard[]): Promise<LatLngType[]> => {
+  const calculatePathFromCards = useCallback(async (cards: PlannerCard[]): Promise<{ waypoints: LatLngType[], distance: string, duration: string }> => {
     // 1. Filter and format the data
     const cardsWithPositions = cards.filter(card => card.position);
     const formattedPositions = cardsWithPositions.map(card => ({
@@ -52,7 +54,7 @@ function NavigationContent() {
     }));
 
     // 2. Guard clause: Don't fetch if there aren't enough points
-    if (formattedPositions.length < 2) return [];
+    if (formattedPositions.length < 2) return { waypoints: [], distance: "0 km", duration: "0 min" };
     
     const JSONToSend = {
       waypoints: formattedPositions,
@@ -81,7 +83,7 @@ function NavigationContent() {
       // We need to convert to Leaflet LatLng objects (lat, lng order)
       if (!routeData.success || !routeData.data?.geometry?.coordinates) {
         console.error("Invalid route data structure:", routeData);
-        return [];
+        return { waypoints: [], distance: "0 km", duration: "0 min" };
       }
 
       const coordinates: number[][] = routeData.data.geometry.coordinates;
@@ -93,8 +95,10 @@ function NavigationContent() {
       // Update total distance and duration
       const distanceKm = (routeData.data.distance / 1000).toFixed(1);
       const durationMin = Math.round(routeData.data.duration / 60);
-      setRouteDistance(`${distanceKm} km`);
-      setRouteDuration(`${durationMin} min`);
+      const distanceStr = `${distanceKm} km`;
+      const durationStr = `${durationMin} min`;
+      setRouteDistance(distanceStr);
+      setRouteDuration(durationStr);
 
       // Calculate segment distances between consecutive waypoints
       if (routeData.data.legs && Array.isArray(routeData.data.legs)) {
@@ -110,27 +114,27 @@ function NavigationContent() {
       }
 
       console.log(`Route calculated: ${waypoints.length} points, ${distanceKm}km, ${durationMin}min`);
-      return waypoints;
+      return { waypoints, distance: distanceStr, duration: durationStr };
 
     } catch (error) {
       console.error("Failed to calculate path:", error);
-      return []; // Return empty path on failure
+      return { waypoints: [], distance: "0 km", duration: "0 min" }; // Return empty path on failure
     }
   }, []);
 
   const handleCardsChange = useCallback(async (cards: PlannerCard[]) => {
     setPlannerCards(cards);
 
-    const newPathPoints = await calculatePathFromCards(cards);
-    setPathPoints(newPathPoints);
+    const result = await calculatePathFromCards(cards);
+    setPathPoints(result.waypoints);
 
     if (!activeRouteId) return;
     setSavedRoutes(prev => prev.map(route => {
       if (route.id === activeRouteId) {
         return {
           ...route,
-          distance: routeDistance,
-          duration: routeDuration,
+          distance: result.distance,
+          duration: result.duration,
           waypointsList: cards.map(c => ({
             id: c.id,
             title: c.title,
@@ -138,7 +142,6 @@ function NavigationContent() {
             location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
             color: c.color,
             finished: c.finished,
-            createdAt: c.createdAt,
           }) as Plan)
         };
       }
@@ -161,7 +164,6 @@ function NavigationContent() {
         color: w.color,
         tags: [],
         finished: w.finished,
-        createdAt: w.createdAt,
       };
     });
 
@@ -177,8 +179,8 @@ function NavigationContent() {
     setPlannerCards(cards);
     
     // Calculate and load path for the imported route
-    const newPathPoints = await calculatePathFromCards(cards);
-    setPathPoints(newPathPoints);
+    const result = await calculatePathFromCards(cards);
+    setPathPoints(result.waypoints);
     
     setViewerOpen(true);
     setActiveTab("Map View");
@@ -200,7 +202,6 @@ function NavigationContent() {
       duration: "0 min",
       waypointsList: [],
       color: COLOR_OPTIONS[colorIndex],
-      createdAt: new Date().toLocaleDateString(),
     };
 
     // Add to saved routes
@@ -228,7 +229,6 @@ function NavigationContent() {
       description: "A new card",
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
-      createdAt: Date.now(),
     };
     if (!activeRouteId) {
       const colorIndex = savedRoutes.length % COLOR_OPTIONS.length;
@@ -239,7 +239,6 @@ function NavigationContent() {
         duration: "0 min",
         waypointsList: [],
         color: COLOR_OPTIONS[colorIndex],
-        createdAt: new Date().toLocaleDateString(),
       }
 
       const updatedRoutes = [...savedRoutes, newRoute];
@@ -262,7 +261,6 @@ function NavigationContent() {
         duration: "0 min",
         waypointsList: [],
         color: COLOR_OPTIONS[colorIndex],
-        createdAt: new Date().toLocaleDateString(),
       };
 
       const updatedRoutes = [...savedRoutes, newRoute];
@@ -286,7 +284,6 @@ function NavigationContent() {
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
       position: position,
-      createdAt: Date.now(),
     };
 
     // Add card immediately without waiting for address
@@ -369,12 +366,15 @@ function NavigationContent() {
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
-          <div className="mb-8 flex items-center gap-3">
+          <Link 
+            href="/"
+            className="mb-8 flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+          >
             <div className="size-8 rounded-full bg-emerald-500 flex items-center justify-center">
               <FaMap className="text-white" size={16} />
             </div>
-            <h1 className="text-xl font-bold text-white">ViComp</h1>
-          </div>
+            <h1 className="text-xl font-bold text-white">ViCons</h1>
+          </Link>
 
           <nav className="flex flex-col gap-2 flex-1">
             <SidebarItem icon={<MdDashboard />} label="Dashboard" active={activeTab === "Dashboard"} onClick={() => setActiveTab("Dashboard")} />
