@@ -9,6 +9,7 @@ import { MdDashboard } from "react-icons/md";
 import { uuidv7 } from "uuidv7";
 import { ChatBox } from "./chat";
 import { DashboardScreen } from "./DashboardScreen";
+import { FilterBox, type POIResult } from "./FilterBox";
 import { NotificationProvider } from "./NotificationContext";
 import { type PlannerCard, RouteViewer } from "./RouteViewer";
 import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
@@ -31,6 +32,7 @@ export default function Page() {
   const [plannerCards, setPlannerCards] = useState<PlannerCard[]>([]);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
+  const [pois, setPois] = useState<POIResult[]>([]);
   const [pathPoints, setPathPoints] = useState<LatLng[]>([]);
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
   ]);
@@ -298,6 +300,11 @@ export default function Page() {
     setSearchResults(results);
   }, []);
 
+  const handlePOIsFound = useCallback((results: POIResult[]) => {
+    console.log('Page received POI results:', results);
+    setPois(results);
+  }, []);
+
   const activeRoute = savedRoutes.find(r => r.id === activeRouteId);
 
   return (
@@ -374,6 +381,7 @@ export default function Page() {
                   planCards={plannerCards}
                   centerLocation={mapCenter}
                   searchResults={searchResults}
+                  pois={pois}
                   onAddPlanFromMap={handleAddPlanFromMap}
                   onUserLocationChange={setUserLocation}
                   pathPoints={pathPoints}
@@ -384,6 +392,13 @@ export default function Page() {
                   <SearchBox
                     onLocationSelect={handleLocationSelect}
                     onSearchResultsChange={handleSearchResultsChange}
+                  />
+                </div>
+                <div className="pointer-events-auto">
+                  <FilterBox
+                    userLocation={userLocation}
+                    plannerCards={plannerCards}
+                    onPOIsFound={handlePOIsFound}
                   />
                 </div>
               </div>

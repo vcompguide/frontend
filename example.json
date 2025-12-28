@@ -1,0 +1,248 @@
+{
+  "success": true,
+  "data": {
+    "fuel": [
+      {
+        "id": 729605031,
+        "name": "Unnamed",
+        "lat": 10.7484818,
+        "lng": 106.6833599,
+        "type": "fuel",
+        "tags": {
+          "amenity": "fuel",
+          "operator": "Tram Xang Dau Duc Loi"
+        }
+      }
+    ],
+    "cafe": [
+      {
+        "id": 5156397623,
+        "name": "Cà Phê Cá Mát Xa",
+        "lat": 10.7432365,
+        "lng": 106.6835587,
+        "type": "cafe",
+        "tags": {
+          "amenity": "cafe",
+          "name": "Cà Phê Cá Mát Xa"
+        }
+      }
+    ],
+    "restaurant": [
+      {
+        "id": 6089100485,
+        "name": "Unnamed",
+        "lat": 10.7475831,
+        "lng": 106.6855439,
+        "type": "restaurant",
+        "tags": {
+          "amenity": "restaurant",
+          "name:en": "Local Wok Fried Restaurant"
+        }
+      },
+      {
+        "id": 8100983474,
+        "name": "Unnamed",
+        "lat": 10.7485923,
+        "lng": 106.6821018,
+        "type": "restaurant",
+        "tags": {
+          "amenity": "restaurant",
+          "cuisine": "rice"
+        }
+      },
+      {
+        "id": 8100983478,
+        "name": "Cơm Tấm - Âu Dương Lân",
+        "lat": 10.7479219,
+        "lng": 106.6820224,
+        "type": "restaurant",
+        "tags": {
+          "amenity": "restaurant",
+          "cuisine": "rice",
+          "name": "Cơm Tấm - Âu Dương Lân"
+        }
+      },
+      {
+        "id": 8100983487,
+        "name": "Nhà Hàng Như Ý",
+        "lat": 10.7461511,
+        "lng": 106.6828013,
+        "type": "restaurant",
+        "tags": {
+          "amenity": "restaurant",
+          "diet:vegetarian": "yes",
+          "name": "Nhà Hàng Như Ý"
+        }
+      }
+    ],
+    "pharmacy": [
+      {
+        "id": 8100983468,
+        "name": "Nhà Thuốc Pharmacity",
+        "lat": 10.748196,
+        "lng": 106.6817435,
+        "type": "pharmacy",
+        "tags": {
+          "amenity": "pharmacy",
+          "dispensing": "yes",
+          "healthcare": "pharmacy",
+          "name": "Nhà Thuốc Pharmacity"
+        }
+      },
+      {
+        "id": 8100983477,
+        "name": "Unnamed",
+        "lat": 10.747962,
+        "lng": 106.6819967,
+        "type": "pharmacy",
+        "tags": {
+          "addr:housenumber": "14",
+          "addr:street": "Âu Dương Lân",
+          "amenity": "pharmacy",
+          "dispensing": "yes",
+          "healthcare": "pharmacy"
+        }
+      },
+      {
+        "id": 8100983482,
+        "name": "Unnamed",
+        "lat": 10.7473844,
+        "lng": 106.6823164,
+        "type": "pharmacy",
+        "tags": {
+          "amenity": "pharmacy",
+          "dispensing": "yes",
+          "healthcare": "pharmacy"
+        }
+      },
+      {
+        "id": 8100983486,
+        "name": "Unnamed",
+        "lat": 10.7462164,
+        "lng": 106.6829472,
+        "type": "pharmacy",
+        "tags": {
+          "amenity": "pharmacy",
+          "dispensing": "yes",
+          "healthcare": "pharmacy"
+        }
+      },
+      {
+        "id": 9464361617,
+        "name": "Nhà thuốc Yến Nhi",
+        "lat": 10.7453748,
+        "lng": 106.6832226,
+        "type": "pharmacy",
+        "tags": {
+          "addr:city": "Ho Chi Minh City",
+          "addr:district": "8",
+          "addr:housenumber": "170",
+          "addr:street": "Âu Dương Lân",
+          "addr:subdistrict": "3",
+          "amenity": "pharmacy",
+          "dispensing": "yes",
+          "drive_through": "yes",
+          "healthcare": "pharmacy",
+          "name": "Nhà thuốc Yến Nhi",
+          "opening_hours": "Mo-Su 07:00-22:30"
+        }
+      }
+    ],
+    "fast_food": [
+      {
+        "id": 8100983481,
+        "name": "Chè Thảo",
+        "lat": 10.7475488,
+        "lng": 106.6820525,
+        "type": "fast_food",
+        "tags": {
+          "amenity": "fast_food",
+          "cuisine": "juice",
+          "name": "Chè Thảo"
+        }
+      },
+      {
+        "id": 11080243733,
+        "name": "Nước Mía 160 (Sugarcane Juice)",
+        "lat": 10.7456016,
+        "lng": 106.6832426,
+        "type": "fast_food",
+        "tags": {
+          "addr:city": "Ho Chi Minh City",
+          "addr:district": "8",
+          "addr:housenumber": "160",
+          "addr:street": "Đường Âu Dương Lân",
+          "addr:subdistrict": "3",
+          "amenity": "fast_food",
+          "cuisine": "juice;sugar_cane_juice",
+          "drive_through": "yes",
+          "name": "Nước Mía 160 (Sugarcane Juice)",
+          "opening_hours": "Mo-Su 09:00-21:00",
+          "operator": "Mr. Hùng",
+          "phone": "0907681413"
+        }
+      }
+    ],
+    "dentist": [
+      {
+        "id": 8100983489,
+        "name": "Unnamed",
+        "lat": 10.7460541,
+        "lng": 106.6830181,
+        "type": "dentist",
+        "tags": {
+          "amenity": "dentist",
+          "healthcare": "dentist"
+        }
+      }
+    ],
+    "place_of_worship": [
+      {
+        "id": 8806398154,
+        "name": "Unnamed",
+        "lat": 10.745378,
+        "lng": 106.6892442,
+        "type": "place_of_worship",
+        "tags": {
+          "addr:city": "Ho Chi Minh City",
+          "addr:housenumber": "268",
+          "addr:street": "Dương Bá Trạc",
+          "amenity": "place_of_worship"
+        }
+      }
+    ],
+    "school": [
+      {
+        "id": 9586952119,
+        "name": "Trường Tiểu Học Rạch Ông",
+        "lat": 10.745167,
+        "lng": 106.6889853,
+        "type": "school",
+        "tags": {
+          "amenity": "school",
+          "name": "Trường Tiểu Học Rạch Ông"
+        }
+      }
+    ],
+    "kindergarten": [
+      {
+        "id": 11056123917,
+        "name": "Trường Mầm Non Việt Nhi",
+        "lat": 10.7455338,
+        "lng": 106.684023,
+        "type": "kindergarten",
+        "tags": {
+          "addr:city": "Ho Chi Minh City",
+          "addr:district": "8",
+          "addr:housenumber": "137/24B",
+          "addr:province": "Hồ Chí Minh",
+          "addr:street": "Âu Dương Lân",
+          "addr:subdistrict": "2",
+          "amenity": "kindergarten",
+          "name": "Trường Mầm Non Việt Nhi"
+        }
+      }
+    ]
+  },
+  "count": 17
+}
