@@ -20,6 +20,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  FaChevronDown,
   FaChevronLeft,
   FaChevronRight,
   FaEdit,
@@ -412,6 +413,7 @@ function SortableCard({
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [showDescription, setShowDescription] = useState(false);
 
   const handleFinishedToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -432,11 +434,29 @@ function SortableCard({
         }}
       >
         <div className="flex justify-between items-center mb-1">
-          <h3
-            className={`text-sm font-bold text-white ${card.finished ? "line-through text-gray-500" : ""}`}
-          >
-            {card.title}
-          </h3>
+          <div className="flex items-center gap-2 flex-1">
+            <h3
+              className={`text-sm font-bold text-white ${card.finished ? "line-through text-gray-500" : ""}`}
+            >
+              {card.title}
+            </h3>
+            {card.description && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDescription(!showDescription);
+                }}
+                className="text-gray-400 hover:text-white transition"
+                title={showDescription ? "Hide description" : "Show description"}
+              >
+                <FaChevronDown
+                  size={10}
+                  className={`transition-transform ${showDescription ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -462,6 +482,11 @@ function SortableCard({
             </button>
           </div>
         </div>
+        {showDescription && card.description && (
+          <p className="text-xs text-gray-300 mb-2 mt-1 whitespace-pre-wrap">
+            {card.description}
+          </p>
+        )}
         {card.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {card.tags.map((tag: string) => (
