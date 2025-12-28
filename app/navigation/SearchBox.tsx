@@ -1,5 +1,6 @@
 "use client";
 
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import type { LatLng } from "leaflet";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaMapMarkerAlt, FaSearch } from "react-icons/fa";
@@ -50,35 +51,42 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 		try {
 			const searchCallString =`http://localhost:9000/api/map/search?q=${encodeURIComponent(searchQuery)}&limit=5`
 			console.log(searchCallString) ;
-			const response = await fetch(
-				searchCallString,
-				{
+			const api = new Sdk({
+				baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+				securityWorker: async () => ({
 					headers: {
-						'User-Agent': 'ViComp Navigation App'
-					}
-				}
-			);
+						Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+					},
+				}),
+			})
+			const response = await api.map.mapControllerSearchPlace({q: searchQuery, limit: 5});				
 			
-			if (response.ok) {
-				const data = await response.json();
-				console.log("Search results:", data);
-				console.log("Search results:", data["data"])
-				const resultsData = data["data"] || [];
-				setResults(resultsData);
-				setShowResults(true);
-				
-				// Notify parent of search results for map markers
-				if (onSearchResultsChange) {
-					const markers: SearchResultMarker[] = resultsData.map((result: any) => ({
-						place_id: result.id,
-						display_name: result.name,
-						lat: result.lat,
-						lng: result.lng,
-						type: result.type 
-					}));
-					console.log('Sending search markers to parent:', markers);
-					onSearchResultsChange(markers);
-				}
+			console.log("Search results:", response.data);
+			const resultsData = response.data.data || [];
+			
+			const mappedResults: SearchResult[] = resultsData.map((result: any, index: number) => ({
+				id: result.id ? Number(result.id) : index,
+				name: result.name,
+				lat: result.lat,
+				lng: result.lng,
+				type: result.type,
+				icon: result.icon
+			}));
+			
+			setResults(mappedResults);
+			setShowResults(true);
+			
+			// Notify parent of search results for map markers
+			if (onSearchResultsChange) {
+				const markers: SearchResultMarker[] = mappedResults.map((result) => ({
+					place_id: result.id,
+					display_name: result.name,
+					lat: result.lat,
+					lng: result.lng,
+					type: result.type 
+				}));
+				console.log('Sending search markers to parent:', markers);
+				onSearchResultsChange(markers);
 			}
 		} catch (error) {
 			console.error("Search error:", error);
