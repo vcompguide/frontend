@@ -70,10 +70,10 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 				}
                 
                 const api = new Sdk({
-                    baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:9000",
+                    baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
                     securityWorker: async () => ({
                         headers: {
-                            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+                            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
                         },
                     }),
                 });
