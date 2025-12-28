@@ -331,6 +331,13 @@ function NavigationContent() {
     setPois(results);
   }, []);
 
+  const handleClearPath = useCallback(() => {
+    setPathPoints([]);
+    setRouteDistance("0 km");
+    setRouteDuration("0 min");
+    setSegmentDistances({});
+  }, []);
+
   const activeRoute = savedRoutes.find(r => r.id === activeRouteId);
 
   return (
@@ -352,12 +359,7 @@ function NavigationContent() {
           userLocation={userLocation}
           onAddUserLocationPlan={handleAddUserLocationPlan}
           segmentDistances={segmentDistances}
-          onClearPath={() => {
-            setPathPoints([]);
-            setRouteDistance("0 km");
-            setRouteDuration("0 min");
-            setSegmentDistances({});
-          }}
+          onClearPath={handleClearPath}
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
