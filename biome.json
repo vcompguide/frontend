@@ -1,0 +1,96 @@
+{
+    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "ignoreUnknown": false,
+        "ignore": ["**/*.spec.ts"],
+        "include": [
+            "src/**/*.ts",
+            "src/**/*.vue",
+            "libs/**/*.ts",
+            "libs/**/*.vue",
+            "scripts/**/*.ts",
+            "scripts/**/*.vue",
+            "**/*.json"
+        ]
+    },
+    "formatter": {
+        "enabled": true,
+        "useEditorconfig": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "lineWidth": 120,
+        "attributePosition": "auto",
+        "bracketSpacing": true,
+        "ignore": ["**/dist/", "**/node_modules/", "**/.yarn/", "**/vite-env.d.ts", "**/*.json", "**/*.yml", "**/*.md", "src/backend/RESTful/BackendRESTfulSDK.ts"]
+    },
+    "organizeImports": {
+        "enabled": true
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "complexity": {
+                "noForEach": "off",
+                "useLiteralKeys": "off",
+                "noStaticOnlyClass": "off"
+            },
+            "style": {
+                "noNonNullAssertion": "off",
+                "useImportType": "off",
+                "useShorthandFunctionType": "off",
+                "noParameterAssign": "off"
+            },
+            "suspicious": {
+                "noDoubleEquals": "off",
+                "noExplicitAny": "off",
+                "noThenProperty": "off"
+            },
+            "performance": {
+                "noDelete": "off"
+            }
+        },
+        "ignore": ["**/dist/", "**/node_modules/", "**/.yarn/", "**/vite-env.d.ts", "**/*.json", "**/*.yml", "**/*.md"]
+    },
+    "javascript": {
+        "formatter": {
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "asNeeded",
+            "trailingCommas": "all",
+            "semicolons": "always",
+            "arrowParentheses": "always",
+            "bracketSameLine": false,
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 120,
+            "quoteStyle": "single",
+            "attributePosition": "auto",
+            "bracketSpacing": true
+        },
+        "linter": {
+            "enabled": true
+        },
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
+        }
+    },
+    "overrides": [
+        {
+            "include": ["**/*.vue"],
+            "linter": {
+                "rules": {
+                    "correctness": {
+                        "noUnusedImports": "off"
+                    }
+                }
+            }
+        }
+    ]
+}
