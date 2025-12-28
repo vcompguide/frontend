@@ -4,6 +4,7 @@ import L, { LatLng } from "leaflet";
 import {
 	MapContainer,
 	Marker,
+	Polyline,
 	Popup,
 	TileLayer,
 	useMap,
@@ -13,9 +14,14 @@ import "leaflet/dist/leaflet.css";
 
 import { useCallback, useEffect, useState } from "react";
 import { FaLocationArrow, FaMinus, FaPlus } from "react-icons/fa";
-import { uuidv7 } from "uuidv7";
+import { MapContextMenu } from "./MapContextMenu";
+import { 
+	highlightMarkerIcon,
+	initDefaultMarker, 
+	markerAnimationsStyles, 
+	userLocationIcon 
+} from "./MapMarkers";
 
-// Fix for default marker icons in Next.js using public path
 L.Icon.Default.mergeOptions({
 	iconUrl: "/leaflet/marker-icon.png",
 	shadowUrl: "/leaflet/marker-shadow.png",
@@ -25,21 +31,16 @@ L.Icon.Default.mergeOptions({
 	shadowSize: [41, 41],
 });
 
-// Cache for custom markers to avoid recreating them
 const markerCache = new Map<string, L.Icon>();
 
-// Create a custom SVG marker icon with data URL
 const createCustomMarker = (color: string = "#3b82f6") => {
-	// Return cached marker if available
 	const cachedMarker = markerCache.get(color);
 	if (cachedMarker) {
 		return cachedMarker;
 	}
 
-	// SVG string for FaMapMarkerAlt pin marker
 	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="${color}"><path d="M192 0C86 0 0 86 0 192c0 127.4 192 320 192 320s192-192.6 192-320c0-106-86-192-192-192zm0 287.6c-52.6 0-96-43.4-96-96s43.4-96 96-96 96 43.4 96 96-43.4 96-96 96z"/></svg>`;
 	
-	// Encode SVG for data URL
 	const encodedSvg = svgString
 		.replace(/"/g, "'")
 		.replace(/</g, "%3C")
@@ -86,17 +87,37 @@ function MarkerSetter({
 	setDisplay,
 	isPickingCardLocation,
 	onCardLocationPicked,
+	onContextMenu,
 }: {
 	setDisplay: (isDisplayed: boolean) => void;
 	isPickingCardLocation: boolean;
 	onCardLocationPicked: (position: LatLng) => void;
+	onContextMenu: (e: L.LeafletMouseEvent) => void;
 }) {
 	useMapEvents({
 		click: (e) => {
+			// Check if click originated from a control button
+			const target = e.originalEvent.target as HTMLElement;
+			if (target.closest('button') || target.closest('.leaflet-control')) {
+				return; // Ignore clicks on control buttons
+			}
+			
 			if (isPickingCardLocation) {
 				onCardLocationPicked(e.latlng);
 			} else {
 				setDisplay(false);
+			}
+		},
+		contextmenu: (e) => {
+			// Check if right-click originated from a control button
+			const target = e.originalEvent.target as HTMLElement;
+			if (target.closest('button') || target.closest('.leaflet-control')) {
+				return; // Ignore right-clicks on control buttons
+			}
+			
+			// Disallow right-clicking when picking location
+			if (!isPickingCardLocation) {
+				onContextMenu(e);
 			}
 		},
 	});
@@ -134,22 +155,25 @@ function DisplayMarker({
 
 function LocateUserOnLoad({
 	locationSetter,
+	onUserLocationChange,
 }: {
 	locationSetter: (LatLng: LatLng) => void;
+	onUserLocationChange?: (location: LatLng) => void;
 }) {
 	const map = useMapEvents({
 		locationfound: (e) => {
 			map.setView(e.latlng, 14);
 			locationSetter(e.latlng);
+			onUserLocationChange?.(e.latlng);
 			// Don't auto-set view - let MapCenterUpdater handle positioning
 		},
 	});
 	useEffect(() => {
 		// Only locate once on mount
-		const hasLocated = (map as any).__hasLocated;
+		const hasLocated = (map as unknown as { __hasLocated?: boolean }).__hasLocated;
 		if (!hasLocated) {
 			map.locate();
-			(map as any).__hasLocated = true;
+			(map as unknown as { __hasLocated?: boolean }).__hasLocated = true;
 		}
 	}, [map]);
 	return null;
@@ -171,6 +195,7 @@ function MapZoomController() {
 	const handleZoomIn = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			map.zoomIn();
 		},
 		[map],
@@ -179,17 +204,20 @@ function MapZoomController() {
 	const handleZoomOut = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			map.zoomOut();
 		},
 		[map],
 	);
 
 	return (
-		<div className="z-[1000] flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-10 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-white/80 hover:text-white bg-transparent justify-center items-center hover:bg-white/10 transition rounded-t border-b border-white/10"
 				onClick={handleZoomIn}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 			>
 				<FaPlus className="w-full h-full" />
 			</button>
@@ -197,6 +225,8 @@ function MapZoomController() {
 				type="button"
 				className="flex size-fit p-2 text-white/80 hover:text-white bg-transparent justify-center items-center hover:bg-white/10 transition rounded-b"
 				onClick={handleZoomOut}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 			>
 				<FaMinus />
 			</button>
@@ -210,6 +240,7 @@ function UserLocationController() {
 	const handleLocateUser = useCallback(
 		(e: React.MouseEvent<HTMLButtonElement>) => {
 			e.stopPropagation();
+			e.preventDefault();
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
 					const newLocation = new LatLng(
@@ -230,11 +261,13 @@ function UserLocationController() {
 	);
 
 	return (
-		<div className="z-[1000] flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg">
+		<div className="z-1000 flex flex-col w-fit h-fit p-1 rounded absolute right-10 bottom-32 gap-2 bg-black/75 backdrop-blur-md border border-white/10 shadow-lg pointer-events-auto">
 			<button
 				type="button"
 				className="flex size-fit p-2 text-blue-400 hover:text-blue-300 bg-transparent justify-center items-center hover:bg-white/10 transition rounded"
 				onClick={handleLocateUser}
+				onMouseDown={(e) => e.stopPropagation()}
+				onContextMenu={(e) => e.preventDefault()}
 				title="Show my location"
 			>
 				<FaLocationArrow className="w-full h-full" />
@@ -253,8 +286,8 @@ interface LeafletMapProps {
 		description: string;
 		position?: LatLng;
 		color: string;
-		priority: "low" | "medium" | "high";
 		tags: string[];
+		finished?: boolean;
 	}>;
 	searchResults?: Array<{
 		place_id: number;
@@ -266,6 +299,9 @@ interface LeafletMapProps {
 	centerLocation?: { lat: number; lng: number };
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
+	onAddPlanFromMap?: (position: LatLng) => void;
+	onUserLocationChange?: (location: LatLng) => void;
+	pathPoints?: LatLng[];
 }
 
 export default function LeafletMap({
@@ -276,16 +312,21 @@ export default function LeafletMap({
 	searchResults = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
+	onAddPlanFromMap = () => {},
+	onUserLocationChange = () => {},
+	pathPoints = [],
 }: LeafletMapProps) {
-	const [_highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
+	const [highlightPosition, _setPosition] = useState<LatLng>(new LatLng(0, 0));
 	const [isHighlighted, setHighlighted] = useState<boolean>(false);
 	const [userLocation, setUserLocation] = useState<LatLng>(new LatLng(0, 0));
-	const [mapId] = useState(() => uuidv7());
 	const [mapCenter, setMapCenter] = useState<
 		{ lat: number; lng: number } | undefined
 	>(centerLocation);
+	const [contextMenu, setContextMenu] = useState<{
+		position: { x: number; y: number };
+		latLng: LatLng;
+	} | null>(null);
 
-	// Khởi tạo default marker override khi component mount
 	useEffect(() => {
 		initDefaultMarker();
 	}, []);
@@ -295,6 +336,34 @@ export default function LeafletMap({
 			onCardLocationPicked(position);
 		},
 		[onCardLocationPicked],
+	);
+
+	const handleCursorMove = useCallback(
+		(position: LatLng) => {
+			onCursorMove(position);
+		},
+		[onCursorMove],
+	);
+
+	const handleContextMenu = useCallback((e: L.LeafletMouseEvent) => {
+		e.originalEvent.preventDefault();
+		// Update context menu position directly (opens at new location or replaces existing)
+		setContextMenu({
+			position: { x: e.originalEvent.clientX, y: e.originalEvent.clientY },
+			latLng: e.latlng,
+		});
+		console.log("Context menu opened at:", e.latlng);
+	}, []);
+
+	const handleCloseContextMenu = useCallback(() => {
+		setContextMenu(null);
+	}, []);
+
+	const handleAddToPlan = useCallback(
+		(position: LatLng) => {
+			onAddPlanFromMap(position);
+		},
+		[onAddPlanFromMap],
 	);
 
 	useEffect(() => {
@@ -309,15 +378,27 @@ export default function LeafletMap({
 			console.log('Search results received:', searchResults);
 		}
 	}, [searchResults]);
-
+		
 	return (
 		<div
 			className={`w-full h-full bg-[#1a1a1a] ${
 				isPickingCardLocation ? "cursor-crosshair" : ""
 			}`}
+			onContextMenu={(e) => e.preventDefault()}
+			role="application"
 		>
 			{/* Inject CSS Animations từ file markers */}
 			<style>{markerAnimationsStyles}</style>
+
+			{/* Context Menu */}
+			{contextMenu && (
+				<MapContextMenu
+					position={contextMenu.position}
+					latLng={contextMenu.latLng}
+					onClose={handleCloseContextMenu}
+					onAddToPlan={handleAddToPlan}
+				/>
+			)}
 
 			<MapContainer
 				center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
@@ -335,11 +416,14 @@ export default function LeafletMap({
 
 				<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
-			<LocateUserOnLoad locationSetter={setUserLocation} />
-				<MarkerSetter
+			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />			<CursorTracker
+				isPickingCardLocation={isPickingCardLocation}
+				onCursorMove={handleCursorMove}
+			/>				<MarkerSetter
 					setDisplay={setHighlighted}
 					isPickingCardLocation={isPickingCardLocation}
 					onCardLocationPicked={handleCardLocationPicked}
+					onContextMenu={handleContextMenu}
 				/>
 
 				{/* Helper/Highlight Marker */}
@@ -350,7 +434,46 @@ export default function LeafletMap({
 					<Popup>You are currently here</Popup>
 				</Marker>
 
-				{/* Plan Card Markers */}
+				{/* Golden Path Layer */}
+				{pathPoints.length > 0 && (
+					<Polyline
+						positions={pathPoints}
+						pathOptions={{
+							color: "#FFD700",
+							weight: 5,
+							opacity: 0.8,
+							lineJoin: "round",
+							lineCap: "round",
+						}}
+					/>
+				)}
+
+				{/* Search Result Markers - Render first to appear below plan markers */}
+				{searchResults.length > 0 && searchResults.map((result) => (
+					<Marker
+						key={`search-${result.place_id}`}
+						position={[result.lat, result.lng]}
+						icon={createSearchMarker()}
+						zIndexOffset={50}
+						pane="markerPane"
+					>
+						<Popup>
+							<div className="text-sm">
+								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
+								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
+								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
+								<button
+									type="button"
+									onClick={() => onAddPlanFromMap(new LatLng(result.lat, result.lng))}
+									className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
+								>
+									Add to Route
+								</button>
+							</div>
+						</Popup>
+					</Marker>			))}
+
+				{/* Plan Card Markers - Render last to appear on top */}
 				{planCards.map(
 					(card) =>
 						card.position && (
@@ -360,31 +483,32 @@ export default function LeafletMap({
 								icon={createCustomMarker(card.color)}
 								zIndexOffset={100}
 							>
-								<Popup>{card.title}</Popup>
+								<Popup>
+									<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
+										<h3 className="text-white font-bold text-lg mb-2">
+											{card.title}
+										</h3>
+										<p className="text-gray-400 text-xs mb-3 line-clamp-2">
+											{card.description}
+										</p>
+
+										<button
+											type="button"
+											onClick={() => onAddPlanFromMap(card.position!)}
+											className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
+										>
+											Add to Route
+										</button>
+									</div>
+								</Popup>
 							</Marker>
 						),
 				)}
 
-				{/* Search Result Markers - Render last to appear on top */}
-				{searchResults.length > 0 && searchResults.map((result) => (
-					<Marker
-						key={`search-${result.place_id}`}
-						position={[result.lat, result.lng]}
-						icon={createSearchMarker()}
-						zIndexOffset={1000}
-						pane="markerPane"
-					>
-						<Popup>
-							<div className="text-sm">
-								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
-								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
-								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
-							</div>
-						</Popup>
-					</Marker>			))}
-
-			<MapZoomController />
-		</MapContainer>
-	</div>
-);
+				<UserLocationController />
+		
+				<MapZoomController />
+			</MapContainer>
+		</div>
+	);
 }

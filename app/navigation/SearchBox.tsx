@@ -5,10 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FaMapMarkerAlt, FaSearch } from "react-icons/fa";
 
 interface SearchResult {
-	place_id: number;
-	display_name: string;
-	lat: string;
-	lon: string;
+	id: number;
+	name: string;
+	lat: number;
+	lng: number;
 	type: string;
 	icon?: string;
 }
@@ -31,8 +31,10 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 	const [results, setResults] = useState<SearchResult[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [showResults, setShowResults] = useState(false);
+	const [selectedIndex, setSelectedIndex] = useState(-1);
 	const searchRef = useRef<HTMLDivElement>(null);
-	const debounceTimerRef = useRef<NodeJS.Timeout>();
+	const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const resultRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
 	// Search function using Nominatim (OpenStreetMap)
 	const searchLocation = useCallback(async (searchQuery: string) => {
@@ -46,8 +48,10 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 
 		setIsLoading(true);
 		try {
+			const searchCallString =`http://localhost:9000/api/map/search?q=${encodeURIComponent(searchQuery)}&limit=5`
+			console.log(searchCallString) ;
 			const response = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`,
+				searchCallString,
 				{
 					headers: {
 						'User-Agent': 'ViComp Navigation App'
@@ -57,17 +61,20 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 			
 			if (response.ok) {
 				const data = await response.json();
-				setResults(data);
+				console.log("Search results:", data);
+				console.log("Search results:", data["data"])
+				const resultsData = data["data"] || [];
+				setResults(resultsData);
 				setShowResults(true);
 				
 				// Notify parent of search results for map markers
 				if (onSearchResultsChange) {
-					const markers: SearchResultMarker[] = data.map((result: SearchResult) => ({
-						place_id: result.place_id,
-						display_name: result.display_name,
-						lat: parseFloat(result.lat),
-						lng: parseFloat(result.lon),
-						type: result.type
+					const markers: SearchResultMarker[] = resultsData.map((result: any) => ({
+						place_id: result.id,
+						display_name: result.name,
+						lat: result.lat,
+						lng: result.lng,
+						type: result.type 
 					}));
 					console.log('Sending search markers to parent:', markers);
 					onSearchResultsChange(markers);
@@ -97,6 +104,7 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 		} else {
 			setResults([]);
 			setShowResults(false);
+			setSelectedIndex(-1);
 			if (onSearchResultsChange) {
 				onSearchResultsChange([]);
 			}
@@ -108,6 +116,22 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 			}
 		};
 	}, [query, searchLocation]);
+
+	// Reset selected index when results change
+	useEffect(() => {
+		setSelectedIndex(-1);
+		resultRefs.current = [];
+	}, [results]);
+
+	// Scroll selected item into view
+	useEffect(() => {
+		if (selectedIndex >= 0 && resultRefs.current[selectedIndex]) {
+			resultRefs.current[selectedIndex]?.scrollIntoView({
+				block: 'nearest',
+				behavior: 'smooth'
+			});
+		}
+	}, [selectedIndex]);
 
 	// Close results when clicking outside
 	useEffect(() => {
@@ -123,17 +147,52 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 
 	const handleResultClick = (result: SearchResult) => {
 		const location = {
-			lat: parseFloat(result.lat),
-			lng: parseFloat(result.lon),
-			name: result.display_name
+			lat: result.lat,
+			lng: result.lng,
+			name: result.name
 		};
 		
 		if (onLocationSelect) {
 			onLocationSelect(location);
 		}
 		
-		setQuery(result.display_name.split(",")[0]); // Set to the main location name
+		setQuery(result.name.split(",")[0]); // Set to the main location name
 		setShowResults(false);
+		setSelectedIndex(-1);
+	};
+
+	// Handle keyboard navigation
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		// Always prevent default behavior for arrow keys to disable cursor movement
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			e.preventDefault();
+		}
+
+		if (!showResults || results.length === 0) return;
+
+		switch (e.key) {
+			case 'ArrowDown':
+				setSelectedIndex((prev) => 
+					prev < results.length - 1 ? prev + 1 : prev
+				);
+				break;
+			case 'ArrowUp':
+				setSelectedIndex((prev) => 
+					prev > 0 ? prev - 1 : -1
+				);
+				break;
+			case 'Enter':
+				e.preventDefault();
+				if (selectedIndex >= 0 && selectedIndex < results.length) {
+					handleResultClick(results[selectedIndex]);
+				}
+				break;
+			case 'Escape':
+				e.preventDefault();
+				setShowResults(false);
+				setSelectedIndex(-1);
+				break;
+		}
 	};
 
 	return (
@@ -145,6 +204,7 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					onFocus={() => results.length > 0 && setShowResults(true)}
+					onKeyDown={handleKeyDown}
 					className="w-full h-12 bg-[#1e1e1e]/90 backdrop-blur-md pl-12 pr-4 rounded-full text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
 					placeholder="Search places..."
 				/>
@@ -158,22 +218,27 @@ export function SearchBox({ onLocationSelect, onSearchResultsChange }: SearchBox
 			{/* Results dropdown */}
 			{showResults && results.length > 0 && (
 				<div className="absolute top-full mt-2 w-full bg-[#1e1e1e]/95 backdrop-blur-md rounded-2xl border border-gray-700 overflow-hidden shadow-2xl max-h-96 overflow-y-auto">
-					{results.map((result) => (
+					{results.map((result, index) => (
 						<button
-							key={result.place_id}
+							key={result.id}
+							ref={(el) => {
+								resultRefs.current[index] = el;
+							}}
 							type="button"
 							onClick={() => handleResultClick(result)}
-							className="w-full px-4 py-3 flex items-start gap-3 hover:bg-emerald-500/10 transition-colors border-b border-gray-800 last:border-b-0 text-left group"
+							className={`w-full px-4 py-3 flex items-start gap-3 transition-colors border-b border-gray-800 last:border-b-0 text-left group ${
+								selectedIndex === index ? 'bg-emerald-500/30 ring-2 ring-emerald-500/50' : 'hover:bg-emerald-500/10'
+							}`}
 						>
-							<div className="mt-1 flex-shrink-0">
+							<div className="mt-1 shrink-0">
 								<FaMapMarkerAlt className="text-emerald-500 group-hover:text-emerald-400" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium text-white truncate">
-									{result.display_name.split(",")[0]}
+									{result.name.split(",")[0]}
 								</p>
 								<p className="text-xs text-gray-400 truncate mt-0.5">
-									{result.display_name.split(",").slice(1).join(",")}
+									{result.name.split(",").slice(1).join(",")}
 								</p>
 								<p className="text-xs text-gray-500 mt-1">
 									{result.type}

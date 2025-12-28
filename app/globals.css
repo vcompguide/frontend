@@ -98,6 +98,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+  20%, 40%, 60%, 80% { transform: translateX(8px); }
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -201,6 +207,33 @@ body.cursor-grabbing * {
 
 .animate-pop-in {
   animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Leaflet Popup Styles for Dark Theme */
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  padding: 0 !important;
+  border-radius: 0.75rem !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  border-radius: 0.75rem !important;
+}
+
+.leaflet-popup-tip {
+  background: #1e1e1e !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: #9ca3af !important;
+  font-size: 24px !important;
+  padding: 8px 12px !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: #ffffff !important;
 }
 
 /* Styling for search result markers */
