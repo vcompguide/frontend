@@ -1,4 +1,5 @@
 import React from "react";
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import {
   closestCenter,
   DndContext,
@@ -1000,7 +1001,7 @@ function WeatherDisplay({
     try {
       const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
-      if (!API_KEY) {
+      if (!API_KEY || true) {
         console.warn("Weather API key not configured, using mock data");
         // Return mock weather data
         setWeather({
@@ -1016,23 +1017,31 @@ function WeatherDisplay({
         return;
       }
 
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${position.lat}&lon=${position.lng}&appid=${API_KEY}&units=metric`,
-      );
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+          },
+        }),
+      });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch weather data");
-      }
-
-      const data = await response.json();
+      const response = await api.weather.weatherControllerGetCurrentWeather({
+        latitude: position.lat,
+        longitude: position.lng,
+        locationName: planName,
+      });
+      
+      const data = response.data;
+      console.log("Fetched weather data:", data);
       setWeather({
-        temp: Math.round(data.main.temp),
-        feels_like: Math.round(data.main.feels_like),
-        humidity: data.main.humidity,
-        description: data.weather[0].description,
-        icon: data.weather[0].icon,
-        wind_speed: data.wind.speed,
-        location_name: data.name,
+        temp: Math.round(data.current.temperature),
+        feels_like: Math.round(data.current.feelsLike),
+        humidity: data.current.humidity,
+        description: data.current.description,
+        icon: data.current.icon,
+        wind_speed: data.current.windSpeed,
+        location_name: data.location.name,
       });
     } catch (err) {
       console.error("Weather fetch error:", err);
@@ -1185,17 +1194,25 @@ function LocationPickerMap({
     if (!searchQuery.trim()) return;
 
     try {
-      // Using Nominatim (OpenStreetMap) geocoding API
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1`,
-      );
-      const results = await response.json();
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:9000",
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+          },
+        }),
+      });
 
-      if (results.length > 0) {
-        const { lat, lon } = results[0];
+      const response = await api.map.mapControllerSearchPlace({
+        q: searchQuery,
+        limit: 1,
+      });
+
+      if (response.data.data.length > 0) {
+        const result = response.data.data[0];
         const position = new (require("leaflet").LatLng)(
-          parseFloat(lat),
-          parseFloat(lon),
+          result.lat,
+          result.lng,
         );
         handleLocationClick(position);
       }

@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const response = await fetch("http://localhost:9000/api/auth/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+    const api = new Sdk({
+      baseURL: process.env.SERVER_URL || "http://localhost:9000",
+      securityWorker: async () => ({
+        headers: {
+          Authorization: `Bearer ${process.env.LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+        },
+      }),
     });
 
-    const data = await response.json();
+    const response = await api.authentication.authControllerSignup(body);
 
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(response.data, { status: 200 });
   } catch (error: any) {
     console.error("Signup proxy error:", error);
     return NextResponse.json(

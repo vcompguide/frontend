@@ -1,5 +1,6 @@
 "use client";
 
+import { Sdk, RouteRequestDtoModeEnum } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import { LatLng } from "leaflet";
 import type { LatLng as LatLngType } from "leaflet";
 import dynamic from "next/dynamic";
@@ -56,37 +57,33 @@ function NavigationContent() {
     // 2. Guard clause: Don't fetch if there aren't enough points
     if (formattedPositions.length < 2) return { waypoints: [], distance: "0 km", duration: "0 min" };
     
-    const JSONToSend = {
-      waypoints: formattedPositions,
-      mode: "driving"
-    };
-    
     try {
-      const response = await fetch("http://localhost:9000/api/routing", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(JSONToSend)
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:9000",
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+          },
+        }),
       });
 
-      // 3. Check for HTTP errors (404, 500, etc.)
-      if (!response.ok) {
-        throw new Error(`Routing API error: ${response.statusText}`);
-      }
+      const response = await api.routing.routingControllerGetRoute({
+        waypoints: formattedPositions,
+        mode: RouteRequestDtoModeEnum.Driving,
+      });
 
-      // 4. Parse the JSON body
-      const routeData = await response.json();
+      // Extract route data
+      const routeData = response.data;
 
       // 5. Extract and convert coordinates from API response
       // API returns coordinates as [lng, lat] in geometry.coordinates
       // We need to convert to Leaflet LatLng objects (lat, lng order)
-      if (!routeData.success || !routeData.data?.geometry?.coordinates) {
+      if (!routeData.success || !routeData.data?.geometry) {
         console.error("Invalid route data structure:", routeData);
         return { waypoints: [], distance: "0 km", duration: "0 min" };
       }
 
-      const coordinates: number[][] = routeData.data.geometry.coordinates;
+      const coordinates: number[][] = (routeData.data.geometry as any).coordinates || [];
       const waypoints: LatLngType[] = coordinates.map((coord: number[]) => {
         const [lng, lat] = coord;
         return new LatLng(lat, lng);
@@ -101,9 +98,9 @@ function NavigationContent() {
       setRouteDuration(durationStr);
 
       // Calculate segment distances between consecutive waypoints
-      if (routeData.data.legs && Array.isArray(routeData.data.legs)) {
+      if ((routeData.data as any).legs && Array.isArray((routeData.data as any).legs)) {
         const segments: { [key: string]: number } = {};
-        routeData.data.legs.forEach((leg: any, index: number) => {
+        (routeData.data as any).legs.forEach((leg: any, index: number) => {
           if (index < cardsWithPositions.length - 1) {
             const fromId = cardsWithPositions[index].id;
             const toId = cardsWithPositions[index + 1].id;

@@ -1,5 +1,6 @@
 "use client";
 
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import type { LatLng } from "leaflet";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaFilter, FaTimes } from "react-icons/fa";
@@ -68,18 +69,24 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 					return;
 				}
                 
-                // Build URL with optional amenities parameter
-                const url = amenities 
-                    ? `http://localhost:9000/api/map/nearby?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}&amenities=${amenities}`
-                    : `http://localhost:9000/api/map/nearby?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}`;
-                
-                console.log('[FilterBox] Fetching POIs with URL:', url);
-				const response = await fetch(url);
-				if (!response.ok) {
-					throw new Error("Failed to fetch nearby POIs");
-				}
+                const api = new Sdk({
+                    baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:9000",
+                    securityWorker: async () => ({
+                        headers: {
+                            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+                        },
+                    }),
+                });
 
-				const data = await response.json();
+                console.log('[FilterBox] Fetching POIs with params:', { lat: userLocation.lat, lng: userLocation.lng, radius, amenities });
+				const response = await api.map.mapControllerSearchNearby({
+                    lat: userLocation.lat,
+                    lng: userLocation.lng,
+                    radius,
+                    amenities: amenities ? amenities.split(',') : undefined,
+                });
+
+				const data = response.data;
 				console.log('[FilterBox] Single location API Response:', data);
 				// Flatten grouped data into single array
 				const poisArray: POIResult[] = [];
