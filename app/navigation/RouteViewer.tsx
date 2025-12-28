@@ -62,6 +62,7 @@ interface RouteViewerProps {
   userLocation?: LatLng | null;
   onAddUserLocationPlan?: () => void;
   segmentDistances?: { [key: string]: number };
+  onClearPath?: () => void;
 }
 
 export function RouteViewer({
@@ -76,6 +77,7 @@ export function RouteViewer({
   userLocation,
   onAddUserLocationPlan,
   segmentDistances = {},
+  onClearPath,
 }: RouteViewerProps) {
   const [cards, setCards] = useState<PlannerCard[]>(initialCards);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -83,7 +85,13 @@ export function RouteViewer({
 
   useEffect(() => {
     setCards(initialCards);
-  }, [initialCards]);
+
+    // Clear path when route is unloaded or has < 2 positioned cards
+    const cardsWithPosition = initialCards.filter(card => card.position);
+    if (cardsWithPosition.length < 2) {
+      onClearPath?.();
+    }
+  }, [initialCards, onClearPath]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -100,6 +108,12 @@ export function RouteViewer({
       const newOrder = arrayMove(cards, oldIndex, newIndex);
       setCards(newOrder);
       onCardsChange?.(newOrder);
+
+      // Check if we need to clear path
+      const positionedCards = newOrder.filter(card => card.position);
+      if (positionedCards.length < 2) {
+        onClearPath?.();
+      }
     }
   };
 
@@ -112,6 +126,7 @@ export function RouteViewer({
   const handleClearAll = () => {
     setCards([]);
     onCardsChange?.([]);
+    onClearPath?.();
     setShowClearWarning(false);
   };
 
@@ -223,7 +238,7 @@ export function RouteViewer({
 
                   // Calculate the number of cards between previous located and current
                   const cardsBetween = prevLocatedIndex >= 0 ? index - prevLocatedIndex - 1 : 0;
-                  
+
                   // Estimate heights: 
                   // - Card with weather: ~180px
                   // - Card without weather: ~80px
@@ -231,7 +246,7 @@ export function RouteViewer({
                   const estimateCardHeight = (c: PlannerCard) => {
                     return c.position ? 180 : 80;
                   };
-                  
+
                   // Calculate total height from previous located card's center to current card's center
                   let totalHeight = 0;
                   if (prevLocatedIndex >= 0) {
@@ -239,8 +254,8 @@ export function RouteViewer({
                     for (let i = prevLocatedIndex + 1; i < index; i++) {
                       totalHeight += estimateCardHeight(cards[i]);
                     }
-                    
-                    
+
+
                     // Half of previous card (from its center to its bottom)
                     totalHeight += estimateCardHeight(cards[prevLocatedIndex]) / 2;
                   }
@@ -249,9 +264,9 @@ export function RouteViewer({
                     <div key={card.id} className="relative">
                       {/* Distance indicator between consecutive located cards - skip for first located plan */}
                       {prevLocatedIndex >= 0 && card.position && !isFirstLocatedPlan && (
-                        <div 
-                          className="absolute pointer-events-none" 
-                          style={{ 
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
                             left: '15px',
                             top: `calc(50% - ${totalHeight}px)`,
                             width: '1px',
@@ -260,17 +275,17 @@ export function RouteViewer({
                           }}
                         >
                           {/* Connecting dashed line spanning from previous circle to current circle */}
-                          <div 
-                            style={{ 
+                          <div
+                            style={{
                               position: 'absolute',
                               width: '100%',
                               height: '100%',
                               borderLeft: '2px dashed rgb(16 185 129 / 0.4)'
-                            }} 
+                            }}
                           />
-                          
+
                           {/* Distance label - centered on the line */}
-                          <div 
+                          <div
                             className="bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5 pointer-events-auto"
                             style={{
                               position: 'absolute',
@@ -293,14 +308,14 @@ export function RouteViewer({
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Card with circle indicator */}
                       <div className="relative">
                         {/* Circle indicator for cards with location - separated from card */}
                         {card.position && (
                           <div className="absolute left-4 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-emerald-500 bg-emerald-500 z-10" />
                         )}
-                        
+
                         <div className="ml-12">
                           <SortableCard
                             card={card}
@@ -308,6 +323,12 @@ export function RouteViewer({
                               const updated = cards.filter((c) => c.id !== card.id);
                               setCards(updated);
                               onCardsChange?.(updated);
+
+                              // Check if we need to clear path
+                              const positionedCards = updated.filter(c => c.position);
+                              if (positionedCards.length < 2) {
+                                onClearPath?.();
+                              }
                             }}
                             onEdit={() => setEditingCardId(card.id)}
                             onToggleFinished={() => {
@@ -316,6 +337,12 @@ export function RouteViewer({
                               );
                               setCards(updated);
                               onCardsChange?.(updated);
+
+                              // Check if we need to clear path
+                              const positionedCards = updated.filter(c => c.position);
+                              if (positionedCards.length < 2) {
+                                onClearPath?.();
+                              }
                             }}
                           />
                         </div>
@@ -338,6 +365,13 @@ export function RouteViewer({
             const list = cards.map((c) => (c.id === updated.id ? updated : c));
             setCards(list);
             onCardsChange?.(list);
+
+            // Check if we need to clear path
+            const positionedCards = list.filter(c => c.position);
+            if (positionedCards.length < 2) {
+              onClearPath?.();
+            }
+
             setEditingCardId(null);
           }}
           onLocationPicked={(position) => {
@@ -346,6 +380,12 @@ export function RouteViewer({
             );
             setCards(list);
             onCardsChange?.(list);
+
+            // Check if we need to clear path
+            const positionedCards = list.filter(c => c.position);
+            if (positionedCards.length < 2) {
+              onClearPath?.();
+            }
           }}
         />
       )}
@@ -552,7 +592,7 @@ function EditModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Check if the event originated from an input/textarea
       const target = e.target as HTMLElement;
-      const isFromInput = 
+      const isFromInput =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement;
 
@@ -563,7 +603,7 @@ function EditModal({
 
       // Check if any input/textarea is currently focused
       const activeElement = document.activeElement;
-      const isInputFocused = 
+      const isInputFocused =
         activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement;
 
@@ -805,7 +845,7 @@ function EditModal({
               {data.finished ? "✓ Completed" : "○ Pending"}
             </button>
             {!data.finished ?
-            <span className="text-xs text-gray-400">Mark as complete</span>: <span className = "text-xs text-gray-400"> Mark as pending </span>}
+              <span className="text-xs text-gray-400">Mark as complete</span> : <span className="text-xs text-gray-400"> Mark as pending </span>}
           </div>
 
           {/* Location Button */}
@@ -966,7 +1006,7 @@ function WeatherDisplay({
         borderTopWidth: "2px",
       }}
     >
-      <div className={ `flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}` }>
+      <div className={`flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}`}>
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -999,69 +1039,69 @@ function WeatherDisplay({
           {error && <div className="text-xs text-red-400 py-2">{error}</div>}
 
           {weather && !isLoading && !error && (
-        <div className="space-y-2">
-          {weather.location_name && (
-            <p className="text-xs font-medium text-gray-300">
-              {weather.location_name}
-            </p>
-          )}
+            <div className="space-y-2">
+              {weather.location_name && (
+                <p className="text-xs font-medium text-gray-300">
+                  {weather.location_name}
+                </p>
+              )}
 
-          <div className="flex items-center gap-2">
-            <Image
-              src={`https://openweathermap.org/img/wn/${weather.icon}.png`}
-              alt={weather.description}
-              width={40}
-              height={40}
-              className="w-10 h-10"
-              unoptimized
-            />
-            <div className="flex-1">
-              <p className="text-xl font-bold text-white">{weather.temp}°C</p>
-              <p className="text-[10px] text-gray-400 capitalize">
-                {weather.description}
-              </p>
-            </div>
-          </div>
+              <div className="flex items-center gap-2">
+                <Image
+                  src={`https://openweathermap.org/img/wn/${weather.icon}.png`}
+                  alt={weather.description}
+                  width={40}
+                  height={40}
+                  className="w-10 h-10"
+                  unoptimized
+                />
+                <div className="flex-1">
+                  <p className="text-xl font-bold text-white">{weather.temp}°C</p>
+                  <p className="text-[10px] text-gray-400 capitalize">
+                    {weather.description}
+                  </p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiThermometer size={12} />
-                <span>Feels</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiThermometer size={12} />
+                    <span>Feels</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.feels_like}°C
+                  </p>
+                </div>
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiHumidity size={12} />
+                    <span>Humid</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.humidity}%
+                  </p>
+                </div>
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiStrongWind size={12} />
+                    <span>Wind</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.wind_speed}m/s
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.feels_like}°C
-              </p>
             </div>
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiHumidity size={12} />
-                <span>Humid</span>
-              </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.humidity}%
-              </p>
-            </div>
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiStrongWind size={12} />
-                <span>Wind</span>
-              </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.wind_speed}m/s
-              </p>
-            </div>
-          </div>
-        </div>
           )}
         </>
       )}

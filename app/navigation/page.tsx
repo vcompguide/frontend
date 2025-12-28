@@ -144,7 +144,7 @@ function NavigationContent() {
     }));
   }, [activeRouteId, calculatePathFromCards]);
 
-  const handleImportRoute = (route: SavedRoute) => {
+  const handleImportRoute = async (route: SavedRoute) => {
     // Load the new route without clearing first to prevent map reset
     const cards: PlannerCard[] = route.waypointsList.map((w) => {
       let position: LatLng | undefined;
@@ -173,6 +173,11 @@ function NavigationContent() {
 
     setActiveRouteId(route.id);
     setPlannerCards(cards);
+    
+    // Calculate and load path for the imported route
+    const newPathPoints = await calculatePathFromCards(cards);
+    setPathPoints(newPathPoints);
+    
     setViewerOpen(true);
     setActiveTab("Map View");
   };
@@ -346,6 +351,12 @@ function NavigationContent() {
           userLocation={userLocation}
           onAddUserLocationPlan={handleAddUserLocationPlan}
           segmentDistances={segmentDistances}
+          onClearPath={() => {
+            setPathPoints([]);
+            setRouteDistance("0 km");
+            setRouteDuration("0 min");
+            setSegmentDistances({});
+          }}
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
@@ -370,6 +381,10 @@ function NavigationContent() {
                     onClick={() => {
                       setActiveRouteId(null);
                       setPlannerCards([]);
+                      setPathPoints([]);
+                      setRouteDistance("0 km");
+                      setRouteDuration("0 min");
+                      setSegmentDistances({});
                     }}
                     className="text-xs px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition"
                     title="Unload current route"

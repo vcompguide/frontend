@@ -162,7 +162,7 @@ function LocateUserOnLoad({
 }) {
 	const map = useMapEvents({
 		locationfound: (e) => {
-			map.setView(e.latlng, 14);
+			map.flyTo(e.latlng, 14, { duration: 1.5 });
 			locationSetter(e.latlng);
 			onUserLocationChange?.(e.latlng);
 			// Don't auto-set view - let MapCenterUpdater handle positioning
