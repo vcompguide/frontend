@@ -60,6 +60,7 @@ interface RouteViewerProps {
   onCreateNewPlan?: () => void;
   userLocation?: LatLng | null;
   onAddUserLocationPlan?: () => void;
+  segmentDistances?: { [key: string]: number };
 }
 
 export function RouteViewer({
@@ -70,8 +71,10 @@ export function RouteViewer({
   activeRouteName,
   onCreateNewRoute,
   onCreateNewPlan,
+  onPickLocation,
   userLocation,
   onAddUserLocationPlan,
+  segmentDistances = {},
 }: RouteViewerProps) {
   const [cards, setCards] = useState<PlannerCard[]>(initialCards);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -116,13 +119,13 @@ export function RouteViewer({
       <button
         type="button"
         onClick={onToggle}
-        className={`fixed top-1/2 -translate-y-1/2 z-30 bg-emerald-500 text-white p-3 rounded-r-lg transition-all duration-300 ${isOpen ? "left-65" : "left-0"}`}
+        className={`fixed top-1/2 -translate-y-1/2 z-30 bg-emerald-500 text-white p-3 rounded-r-lg transition-all duration-300 ${isOpen ? "left-80" : "left-0"}`}
       >
         {isOpen ? <FaChevronLeft size={20} /> : <FaChevronRight size={20} />}
       </button>
 
       <aside
-        className={`fixed left-0 top-0 h-screen w-65 bg-[#1e1e1e]/95 backdrop-blur-xl border-r border-white/10 z-40 flex flex-col transition-transform duration-300 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 top-0 h-screen w-80 bg-[#1e1e1e]/95 backdrop-blur-xl border-r border-white/10 z-40 flex flex-col transition-transform duration-300 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center justify-between mb-2">
@@ -201,25 +204,124 @@ export function RouteViewer({
                 items={cards.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {cards.map((card) => (
-                  <SortableCard
-                    key={card.id}
-                    card={card}
-                    onRemove={() => {
-                      const updated = cards.filter((c) => c.id !== card.id);
-                      setCards(updated);
-                      onCardsChange?.(updated);
-                    }}
-                    onEdit={() => setEditingCardId(card.id)}
-                    onToggleFinished={() => {
-                      const updated = cards.map((c) =>
-                        c.id === card.id ? { ...c, finished: !c.finished } : c,
-                      );
-                      setCards(updated);
-                      onCardsChange?.(updated);
-                    }}
-                  />
-                ))}
+                {cards.map((card, index) => {
+                  // Find the previous located plan (may not be immediately before)
+                  let prevLocatedIndex = -1;
+                  for (let i = index - 1; i >= 0; i--) {
+                    if (cards[i].position) {
+                      prevLocatedIndex = i;
+                      break;
+                    }
+                  }
+
+                  // Check if this is the first located plan
+                  let isFirstLocatedPlan = false;
+                  if (card.position) {
+                    isFirstLocatedPlan = !cards.slice(0, index).some(c => c.position);
+                  }
+
+                  // Calculate the number of cards between previous located and current
+                  const cardsBetween = prevLocatedIndex >= 0 ? index - prevLocatedIndex - 1 : 0;
+                  
+                  // Estimate heights: 
+                  // - Card with weather: ~180px
+                  // - Card without weather: ~80px
+                  // - Non-located card: ~80px
+                  const estimateCardHeight = (c: PlannerCard) => {
+                    return c.position ? 180 : 80;
+                  };
+                  
+                  // Calculate total height from previous located card's center to current card's center
+                  let totalHeight = 0;
+                  if (prevLocatedIndex >= 0) {
+                    // Full height of cards in between
+                    for (let i = prevLocatedIndex + 1; i < index; i++) {
+                      totalHeight += estimateCardHeight(cards[i]);
+                    }
+                    
+                    
+                    // Half of previous card (from its center to its bottom)
+                    totalHeight += estimateCardHeight(cards[prevLocatedIndex]) / 2;
+                  }
+
+                  return (
+                    <div key={card.id} className="relative">
+                      {/* Distance indicator between consecutive located cards - skip for first located plan */}
+                      {prevLocatedIndex >= 0 && card.position && !isFirstLocatedPlan && (
+                        <div 
+                          className="absolute pointer-events-none" 
+                          style={{ 
+                            left: '15px',
+                            top: `calc(50% - ${totalHeight}px)`,
+                            width: '1px',
+                            height: `${totalHeight}px`,
+                            transform: 'translateX(-50%)'
+                          }}
+                        >
+                          {/* Connecting dashed line spanning from previous circle to current circle */}
+                          <div 
+                            style={{ 
+                              position: 'absolute',
+                              width: '100%',
+                              height: '100%',
+                              borderLeft: '2px dashed rgb(16 185 129 / 0.4)'
+                            }} 
+                          />
+                          
+                          {/* Distance label - centered on the line */}
+                          <div 
+                            className="bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5 pointer-events-auto"
+                            style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)'
+                            }}
+                          >
+                            <span className="text-[10px] text-emerald-400 font-medium whitespace-nowrap">
+                              {(() => {
+                                const segmentKey = `${cards[prevLocatedIndex].id}-${card.id}`;
+                                const distanceMeters = segmentDistances[segmentKey];
+                                if (distanceMeters !== undefined) {
+                                  const km = (distanceMeters / 1000).toFixed(1);
+                                  return `${km} km`;
+                                }
+                                return '—';
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Card with circle indicator */}
+                      <div className="relative">
+                        {/* Circle indicator for cards with location - separated from card */}
+                        {card.position && (
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-emerald-500 bg-emerald-500 z-10" />
+                        )}
+                        
+                        <div className="ml-12">
+                          <SortableCard
+                            card={card}
+                            onRemove={() => {
+                              const updated = cards.filter((c) => c.id !== card.id);
+                              setCards(updated);
+                              onCardsChange?.(updated);
+                            }}
+                            onEdit={() => setEditingCardId(card.id)}
+                            onToggleFinished={() => {
+                              const updated = cards.map((c) =>
+                                c.id === card.id ? { ...c, finished: !c.finished } : c,
+                              );
+                              setCards(updated);
+                              onCardsChange?.(updated);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </SortableContext>
             )}
           </div>
@@ -533,11 +635,10 @@ function EditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
         ref={modalRef}
-        className="bg-[#1e1e1e] rounded-2xl border border-white/10 flex transition-all duration-300 h-3/4"
-        style={{ width: isPickingLocation ? "80vw" : "24rem" }}
+        className={`bg-[#1e1e1e] rounded-2xl border border-white/10 flex transition-all duration-300 h-3/4 ${isPickingLocation ? "w-[80vw]" : "w-96"}`}
       >
         {/* Main Form */}
-        <div className="w-96 overflow-y-auto p-6 flex flex-col transition-all duration-300">
+        <div className={`overflow-y-auto p-6 flex flex-col transition-all duration-300 ${isPickingLocation ? "w-96" : "w-full"}`}>
           <div className="flex justify-between mb-6">
             <h2 className="text-xl font-bold text-white">Edit Plan</h2>
             <button
@@ -703,7 +804,7 @@ function EditModal({
 
         {/* Map Side Panel */}
         {isPickingLocation && (
-          <div className="w-1/2 bg-[#0f1110] rounded-r-2xl overflow-hidden flex flex-col transition-all duration-300">
+          <div className="flex-1 bg-[#0f1110] rounded-r-2xl overflow-hidden flex flex-col transition-all duration-300">
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Select Location</h3>
               <button

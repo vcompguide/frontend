@@ -35,6 +35,9 @@ function NavigationContent() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
   const [pathPoints, setPathPoints] = useState<LatLng[]>([]);
+  const [routeDistance, setRouteDistance] = useState<string>("0 km");
+  const [routeDuration, setRouteDuration] = useState<string>("0 min");
+  const [segmentDistances, setSegmentDistances] = useState<{ [key: string]: number }>({}); // Map of "fromId-toId" -> distance in meters
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
   ]);
 
@@ -85,7 +88,26 @@ function NavigationContent() {
         return new LatLng(lat, lng);
       });
 
-      console.log(`Route calculated: ${waypoints.length} points, ${routeData.data.distance}m, ${routeData.data.duration}s`);
+      // Update total distance and duration
+      const distanceKm = (routeData.data.distance / 1000).toFixed(1);
+      const durationMin = Math.round(routeData.data.duration / 60);
+      setRouteDistance(`${distanceKm} km`);
+      setRouteDuration(`${durationMin} min`);
+
+      // Calculate segment distances between consecutive waypoints
+      if (routeData.data.legs && Array.isArray(routeData.data.legs)) {
+        const segments: { [key: string]: number } = {};
+        routeData.data.legs.forEach((leg: any, index: number) => {
+          if (index < cardsWithPositions.length - 1) {
+            const fromId = cardsWithPositions[index].id;
+            const toId = cardsWithPositions[index + 1].id;
+            segments[`${fromId}-${toId}`] = leg.distance; // distance in meters
+          }
+        });
+        setSegmentDistances(segments);
+      }
+
+      console.log(`Route calculated: ${waypoints.length} points, ${distanceKm}km, ${durationMin}min`);
       return waypoints;
 
     } catch (error) {
@@ -105,6 +127,8 @@ function NavigationContent() {
       if (route.id === activeRouteId) {
         return {
           ...route,
+          distance: routeDistance,
+          duration: routeDuration,
           waypointsList: cards.map(c => ({
             id: c.id,
             title: c.title,
@@ -321,6 +345,7 @@ function NavigationContent() {
           onCreateNewPlan={handleCreateNewPlan}
           userLocation={userLocation}
           onAddUserLocationPlan={handleAddUserLocationPlan}
+          segmentDistances={segmentDistances}
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
