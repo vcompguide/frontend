@@ -20,6 +20,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  FaChevronDown,
   FaChevronLeft,
   FaChevronRight,
   FaEdit,
@@ -60,6 +61,8 @@ interface RouteViewerProps {
   onCreateNewPlan?: () => void;
   userLocation?: LatLng | null;
   onAddUserLocationPlan?: () => void;
+  segmentDistances?: { [key: string]: number };
+  onClearPath?: () => void;
 }
 
 export function RouteViewer({
@@ -70,8 +73,11 @@ export function RouteViewer({
   activeRouteName,
   onCreateNewRoute,
   onCreateNewPlan,
+  onPickLocation,
   userLocation,
   onAddUserLocationPlan,
+  segmentDistances = {},
+  onClearPath,
 }: RouteViewerProps) {
   const [cards, setCards] = useState<PlannerCard[]>(initialCards);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -79,7 +85,13 @@ export function RouteViewer({
 
   useEffect(() => {
     setCards(initialCards);
-  }, [initialCards]);
+
+    // Clear path when route is unloaded or has < 2 positioned cards
+    const cardsWithPosition = initialCards.filter(card => card.position);
+    if (cardsWithPosition.length < 2) {
+      onClearPath?.();
+    }
+  }, [initialCards, onClearPath]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -96,6 +108,12 @@ export function RouteViewer({
       const newOrder = arrayMove(cards, oldIndex, newIndex);
       setCards(newOrder);
       onCardsChange?.(newOrder);
+
+      // Check if we need to clear path
+      const positionedCards = newOrder.filter(card => card.position);
+      if (positionedCards.length < 2) {
+        onClearPath?.();
+      }
     }
   };
 
@@ -108,6 +126,7 @@ export function RouteViewer({
   const handleClearAll = () => {
     setCards([]);
     onCardsChange?.([]);
+    onClearPath?.();
     setShowClearWarning(false);
   };
 
@@ -116,13 +135,13 @@ export function RouteViewer({
       <button
         type="button"
         onClick={onToggle}
-        className={`fixed top-1/2 -translate-y-1/2 z-30 bg-emerald-500 text-white p-3 rounded-r-lg transition-all duration-300 ${isOpen ? "left-65" : "left-0"}`}
+        className={`fixed top-1/2 -translate-y-1/2 z-30 bg-emerald-500 text-white p-3 rounded-r-lg transition-all duration-300 ${isOpen ? "left-80" : "left-0"}`}
       >
         {isOpen ? <FaChevronLeft size={20} /> : <FaChevronRight size={20} />}
       </button>
 
       <aside
-        className={`fixed left-0 top-0 h-screen w-65 bg-[#1e1e1e]/95 backdrop-blur-xl border-r border-white/10 z-40 flex flex-col transition-transform duration-300 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 top-0 h-screen w-80 bg-[#1e1e1e]/95 backdrop-blur-xl border-r border-white/10 z-40 flex flex-col transition-transform duration-300 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center justify-between mb-2">
@@ -201,25 +220,136 @@ export function RouteViewer({
                 items={cards.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {cards.map((card) => (
-                  <SortableCard
-                    key={card.id}
-                    card={card}
-                    onRemove={() => {
-                      const updated = cards.filter((c) => c.id !== card.id);
-                      setCards(updated);
-                      onCardsChange?.(updated);
-                    }}
-                    onEdit={() => setEditingCardId(card.id)}
-                    onToggleFinished={() => {
-                      const updated = cards.map((c) =>
-                        c.id === card.id ? { ...c, finished: !c.finished } : c,
-                      );
-                      setCards(updated);
-                      onCardsChange?.(updated);
-                    }}
-                  />
-                ))}
+                {cards.map((card, index) => {
+                  // Find the previous located plan (may not be immediately before)
+                  let prevLocatedIndex = -1;
+                  for (let i = index - 1; i >= 0; i--) {
+                    if (cards[i].position) {
+                      prevLocatedIndex = i;
+                      break;
+                    }
+                  }
+
+                  // Check if this is the first located plan
+                  let isFirstLocatedPlan = false;
+                  if (card.position) {
+                    isFirstLocatedPlan = !cards.slice(0, index).some(c => c.position);
+                  }
+
+                  // Calculate the number of cards between previous located and current
+                  const cardsBetween = prevLocatedIndex >= 0 ? index - prevLocatedIndex - 1 : 0;
+
+                  // Estimate heights: 
+                  // - Card with weather: ~180px
+                  // - Card without weather: ~80px
+                  // - Non-located card: ~80px
+                  const estimateCardHeight = (c: PlannerCard) => {
+                    return c.position ? 180 : 80;
+                  };
+
+                  // Calculate total height from previous located card's center to current card's center
+                  let totalHeight = 0;
+                  if (prevLocatedIndex >= 0) {
+                    // Full height of cards in between
+                    for (let i = prevLocatedIndex + 1; i < index; i++) {
+                      totalHeight += estimateCardHeight(cards[i]);
+                    }
+
+
+                    // Half of previous card (from its center to its bottom)
+                    totalHeight += estimateCardHeight(cards[prevLocatedIndex]) / 2;
+                  }
+
+                  return (
+                    <div key={card.id} className="relative">
+                      {/* Distance indicator between consecutive located cards - skip for first located plan */}
+                      {prevLocatedIndex >= 0 && card.position && !isFirstLocatedPlan && (
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: '15px',
+                            top: `calc(50% - ${totalHeight}px)`,
+                            width: '1px',
+                            height: `${totalHeight}px`,
+                            transform: 'translateX(-50%)'
+                          }}
+                        >
+                          {/* Connecting dashed line spanning from previous circle to current circle */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              width: '100%',
+                              height: '100%',
+                              borderLeft: '2px dashed rgb(16 185 129 / 0.4)'
+                            }}
+                          />
+
+                          {/* Distance label - centered on the line */}
+                          <div
+                            className="bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5 pointer-events-auto"
+                            style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)'
+                            }}
+                          >
+                            <span className="text-[10px] text-emerald-400 font-medium whitespace-nowrap">
+                              {(() => {
+                                const segmentKey = `${cards[prevLocatedIndex].id}-${card.id}`;
+                                const distanceMeters = segmentDistances[segmentKey];
+                                if (distanceMeters !== undefined) {
+                                  const km = (distanceMeters / 1000).toFixed(1);
+                                  return `${km} km`;
+                                }
+                                return '—';
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Card with circle indicator */}
+                      <div className="relative">
+                        {/* Circle indicator for cards with location - separated from card */}
+                        {card.position && (
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-emerald-500 bg-emerald-500 z-10" />
+                        )}
+
+                        <div className="ml-12">
+                          <SortableCard
+                            card={card}
+                            onRemove={() => {
+                              const updated = cards.filter((c) => c.id !== card.id);
+                              setCards(updated);
+                              onCardsChange?.(updated);
+
+                              // Check if we need to clear path
+                              const positionedCards = updated.filter(c => c.position);
+                              if (positionedCards.length < 2) {
+                                onClearPath?.();
+                              }
+                            }}
+                            onEdit={() => setEditingCardId(card.id)}
+                            onToggleFinished={() => {
+                              const updated = cards.map((c) =>
+                                c.id === card.id ? { ...c, finished: !c.finished } : c,
+                              );
+                              setCards(updated);
+                              onCardsChange?.(updated);
+
+                              // Check if we need to clear path
+                              const positionedCards = updated.filter(c => c.position);
+                              if (positionedCards.length < 2) {
+                                onClearPath?.();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </SortableContext>
             )}
           </div>
@@ -235,6 +365,13 @@ export function RouteViewer({
             const list = cards.map((c) => (c.id === updated.id ? updated : c));
             setCards(list);
             onCardsChange?.(list);
+
+            // Check if we need to clear path
+            const positionedCards = list.filter(c => c.position);
+            if (positionedCards.length < 2) {
+              onClearPath?.();
+            }
+
             setEditingCardId(null);
           }}
           onLocationPicked={(position) => {
@@ -243,6 +380,12 @@ export function RouteViewer({
             );
             setCards(list);
             onCardsChange?.(list);
+
+            // Check if we need to clear path
+            const positionedCards = list.filter(c => c.position);
+            if (positionedCards.length < 2) {
+              onClearPath?.();
+            }
           }}
         />
       )}
@@ -310,6 +453,7 @@ function SortableCard({
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [showDescription, setShowDescription] = useState(false);
 
   const handleFinishedToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -330,11 +474,29 @@ function SortableCard({
         }}
       >
         <div className="flex justify-between items-center mb-1">
-          <h3
-            className={`text-sm font-bold text-white ${card.finished ? "line-through text-gray-500" : ""}`}
-          >
-            {card.title}
-          </h3>
+          <div className="flex items-center gap-2 flex-1">
+            <h3
+              className={`text-sm font-bold text-white ${card.finished ? "line-through text-gray-500" : ""}`}
+            >
+              {card.title}
+            </h3>
+            {card.description && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDescription(!showDescription);
+                }}
+                className="text-gray-400 hover:text-white transition"
+                title={showDescription ? "Hide description" : "Show description"}
+              >
+                <FaChevronDown
+                  size={10}
+                  className={`transition-transform ${showDescription ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -360,6 +522,11 @@ function SortableCard({
             </button>
           </div>
         </div>
+        {showDescription && card.description && (
+          <p className="text-xs text-gray-300 mb-2 mt-1 whitespace-pre-wrap">
+            {card.description}
+          </p>
+        )}
         {card.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {card.tags.map((tag: string) => (
@@ -425,7 +592,7 @@ function EditModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Check if the event originated from an input/textarea
       const target = e.target as HTMLElement;
-      const isFromInput = 
+      const isFromInput =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement;
 
@@ -436,7 +603,7 @@ function EditModal({
 
       // Check if any input/textarea is currently focused
       const activeElement = document.activeElement;
-      const isInputFocused = 
+      const isInputFocused =
         activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement;
 
@@ -533,11 +700,10 @@ function EditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
         ref={modalRef}
-        className="bg-[#1e1e1e] rounded-2xl border border-white/10 flex transition-all duration-300 h-3/4"
-        style={{ width: isPickingLocation ? "80vw" : "24rem" }}
+        className={`bg-[#1e1e1e] rounded-2xl border border-white/10 flex transition-all duration-300 h-3/4 ${isPickingLocation ? "w-[80vw]" : "w-96"}`}
       >
         {/* Main Form */}
-        <div className="w-96 overflow-y-auto p-6 flex flex-col transition-all duration-300">
+        <div className={`overflow-y-auto p-6 flex flex-col transition-all duration-300 ${isPickingLocation ? "w-96" : "w-full"}`}>
           <div className="flex justify-between mb-6">
             <h2 className="text-xl font-bold text-white">Edit Plan</h2>
             <button
@@ -679,7 +845,7 @@ function EditModal({
               {data.finished ? "✓ Completed" : "○ Pending"}
             </button>
             {!data.finished ?
-            <span className="text-xs text-gray-400">Mark as complete</span>: <span className = "text-xs text-gray-400"> Mark as pending </span>}
+              <span className="text-xs text-gray-400">Mark as complete</span> : <span className="text-xs text-gray-400"> Mark as pending </span>}
           </div>
 
           {/* Location Button */}
@@ -703,7 +869,7 @@ function EditModal({
 
         {/* Map Side Panel */}
         {isPickingLocation && (
-          <div className="w-1/2 bg-[#0f1110] rounded-r-2xl overflow-hidden flex flex-col transition-all duration-300">
+          <div className="flex-1 bg-[#0f1110] rounded-r-2xl overflow-hidden flex flex-col transition-all duration-300">
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Select Location</h3>
               <button
@@ -840,7 +1006,7 @@ function WeatherDisplay({
         borderTopWidth: "2px",
       }}
     >
-      <div className={ `flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}` }>
+      <div className={`flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}`}>
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -873,69 +1039,69 @@ function WeatherDisplay({
           {error && <div className="text-xs text-red-400 py-2">{error}</div>}
 
           {weather && !isLoading && !error && (
-        <div className="space-y-2">
-          {weather.location_name && (
-            <p className="text-xs font-medium text-gray-300">
-              {weather.location_name}
-            </p>
-          )}
+            <div className="space-y-2">
+              {weather.location_name && (
+                <p className="text-xs font-medium text-gray-300">
+                  {weather.location_name}
+                </p>
+              )}
 
-          <div className="flex items-center gap-2">
-            <Image
-              src={`https://openweathermap.org/img/wn/${weather.icon}.png`}
-              alt={weather.description}
-              width={40}
-              height={40}
-              className="w-10 h-10"
-              unoptimized
-            />
-            <div className="flex-1">
-              <p className="text-xl font-bold text-white">{weather.temp}°C</p>
-              <p className="text-[10px] text-gray-400 capitalize">
-                {weather.description}
-              </p>
-            </div>
-          </div>
+              <div className="flex items-center gap-2">
+                <Image
+                  src={`https://openweathermap.org/img/wn/${weather.icon}.png`}
+                  alt={weather.description}
+                  width={40}
+                  height={40}
+                  className="w-10 h-10"
+                  unoptimized
+                />
+                <div className="flex-1">
+                  <p className="text-xl font-bold text-white">{weather.temp}°C</p>
+                  <p className="text-[10px] text-gray-400 capitalize">
+                    {weather.description}
+                  </p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiThermometer size={12} />
-                <span>Feels</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiThermometer size={12} />
+                    <span>Feels</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.feels_like}°C
+                  </p>
+                </div>
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiHumidity size={12} />
+                    <span>Humid</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.humidity}%
+                  </p>
+                </div>
+                <div
+                  className="rounded p-1.5"
+                  style={{ backgroundColor: `${cardColor}15` }}
+                >
+                  <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
+                    <WiStrongWind size={12} />
+                    <span>Wind</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white">
+                    {weather.wind_speed}m/s
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.feels_like}°C
-              </p>
             </div>
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiHumidity size={12} />
-                <span>Humid</span>
-              </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.humidity}%
-              </p>
-            </div>
-            <div
-              className="rounded p-1.5"
-              style={{ backgroundColor: `${cardColor}15` }}
-            >
-              <div className="flex items-center gap-0.5 text-gray-400 text-[9px] mb-0.5">
-                <WiStrongWind size={12} />
-                <span>Wind</span>
-              </div>
-              <p className="text-[11px] font-semibold text-white">
-                {weather.wind_speed}m/s
-              </p>
-            </div>
-          </div>
-        </div>
           )}
         </>
       )}
