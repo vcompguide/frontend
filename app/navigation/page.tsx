@@ -14,13 +14,16 @@ import { type PlannerCard, RouteViewer } from "./RouteViewer";
 import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
 import { SearchBox, type SearchResultMarker } from "./SearchBox";
 import { SettingsScreen } from "./SettingsScreen";
-import { fetchAddress } from "./MapContextMenu"
+import { fetchAddress } from "./MapContextMenu";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthScreen } from "./AuthScreen";
 const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-[#1e1e1e] animate-pulse" />,
 });
 
-export default function Page() {
+function NavigationContent() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [viewerOpen, setViewerOpen] = useState(false);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
@@ -355,8 +358,16 @@ export default function Page() {
           </nav>
 
           <button type="button" className="mt-auto pt-6 border-t border-gray-800 flex items-center gap-3" onClick={() => setActiveTab("Settings")}>
-            <div className="size-10 rounded-full bg-orange-200 flex items-center justify-center text-orange-800 font-bold">AM</div>
-            <div className="text-left"><p className="text-sm font-medium text-white">Alex Morgan</p></div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="size-10 rounded-full object-cover" />
+            ) : (
+              <div className="size-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+            )}
+            <div className="text-left">
+              <p className="text-sm font-medium text-white truncate max-w-[120px]">{user?.name || "User"}</p>
+            </div>
           </button>
         </aside>
 
@@ -402,4 +413,35 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode; 
       {icon} <span className="text-sm font-medium">{label}</span>
     </button>
   );
+}
+
+export default function Page() {
+  return (
+    <AuthProvider>
+      <AuthWrapper />
+    </AuthProvider>
+  );
+}
+
+function AuthWrapper() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-screen bg-[#0f1110] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center size-16 rounded-full bg-emerald-500 mb-4 animate-pulse">
+            <FaMap className="text-white" size={32} />
+          </div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return <NavigationContent />;
 }
