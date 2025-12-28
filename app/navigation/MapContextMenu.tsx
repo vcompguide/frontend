@@ -1,5 +1,6 @@
 "use client";
 
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import type { LatLng } from "leaflet";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FaCloudSun, FaExpand, FaMapMarkerAlt, FaSpinner, FaTimes } from "react-icons/fa";
@@ -39,22 +40,18 @@ interface MapContextMenuProps {
 // Separate function to fetch address from coordinates
 export async function fetchAddress(lat: number, lng: number): Promise<string> {
 	try {
-		const response = await fetch(
-			`http://localhost:9000/api/map/location?lat=${lat}&lng=${lng}`,
-			{
+		const api = new Sdk({
+			baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+			securityWorker: async () => ({
 				headers: {
-					'User-Agent': 'ViComp Navigation App'
-				}
-			}
-		);
-		
-		if (!response.ok) {
-			throw new Error("Failed to fetch address");
-		}
-		
-		const data = await response.json();
-		console.log(data);
-		return data["data"]["address"] || "Unknown address";
+					Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+				},
+			}),
+		});
+
+		const response = await api.map.mapControllerGetLocationDetail({ lat, lng });
+		console.log(response.data);
+		return response.data.data?.address || "Unknown address";
 	} catch (err) {
 		console.error("Address fetch error:", err);
 		return "Unknown address";
