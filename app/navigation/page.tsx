@@ -15,13 +15,16 @@ import { type PlannerCard, RouteViewer } from "./RouteViewer";
 import { type Plan, type SavedRoute, SavedRoutesScreen } from "./SavedRoutesScreen";
 import { SearchBox, type SearchResultMarker } from "./SearchBox";
 import { SettingsScreen } from "./SettingsScreen";
-import { fetchAddress } from "./MapContextMenu"
+import { fetchAddress } from "./MapContextMenu";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthScreen } from "./AuthScreen";
 const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-[#1e1e1e] animate-pulse" />,
 });
 
-export default function Page() {
+function NavigationContent() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [viewerOpen, setViewerOpen] = useState(false);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
@@ -34,6 +37,9 @@ export default function Page() {
   const [searchResults, setSearchResults] = useState<SearchResultMarker[]>([]);
   const [pois, setPois] = useState<POIResult[]>([]);
   const [pathPoints, setPathPoints] = useState<LatLng[]>([]);
+  const [routeDistance, setRouteDistance] = useState<string>("0 km");
+  const [routeDuration, setRouteDuration] = useState<string>("0 min");
+  const [segmentDistances, setSegmentDistances] = useState<{ [key: string]: number }>({}); // Map of "fromId-toId" -> distance in meters
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
   ]);
 
@@ -84,7 +90,26 @@ export default function Page() {
         return new LatLng(lat, lng);
       });
 
-      console.log(`Route calculated: ${waypoints.length} points, ${routeData.data.distance}m, ${routeData.data.duration}s`);
+      // Update total distance and duration
+      const distanceKm = (routeData.data.distance / 1000).toFixed(1);
+      const durationMin = Math.round(routeData.data.duration / 60);
+      setRouteDistance(`${distanceKm} km`);
+      setRouteDuration(`${durationMin} min`);
+
+      // Calculate segment distances between consecutive waypoints
+      if (routeData.data.legs && Array.isArray(routeData.data.legs)) {
+        const segments: { [key: string]: number } = {};
+        routeData.data.legs.forEach((leg: any, index: number) => {
+          if (index < cardsWithPositions.length - 1) {
+            const fromId = cardsWithPositions[index].id;
+            const toId = cardsWithPositions[index + 1].id;
+            segments[`${fromId}-${toId}`] = leg.distance; // distance in meters
+          }
+        });
+        setSegmentDistances(segments);
+      }
+
+      console.log(`Route calculated: ${waypoints.length} points, ${distanceKm}km, ${durationMin}min`);
       return waypoints;
 
     } catch (error) {
@@ -104,6 +129,8 @@ export default function Page() {
       if (route.id === activeRouteId) {
         return {
           ...route,
+          distance: routeDistance,
+          duration: routeDuration,
           waypointsList: cards.map(c => ({
             id: c.id,
             title: c.title,
@@ -119,7 +146,7 @@ export default function Page() {
     }));
   }, [activeRouteId, calculatePathFromCards]);
 
-  const handleImportRoute = (route: SavedRoute) => {
+  const handleImportRoute = async (route: SavedRoute) => {
     // Load the new route without clearing first to prevent map reset
     const cards: PlannerCard[] = route.waypointsList.map((w) => {
       let position: LatLng | undefined;
@@ -148,6 +175,11 @@ export default function Page() {
 
     setActiveRouteId(route.id);
     setPlannerCards(cards);
+    
+    // Calculate and load path for the imported route
+    const newPathPoints = await calculatePathFromCards(cards);
+    setPathPoints(newPathPoints);
+    
     setViewerOpen(true);
     setActiveTab("Map View");
   };
@@ -325,6 +357,13 @@ export default function Page() {
           onCreateNewPlan={handleCreateNewPlan}
           userLocation={userLocation}
           onAddUserLocationPlan={handleAddUserLocationPlan}
+          segmentDistances={segmentDistances}
+          onClearPath={() => {
+            setPathPoints([]);
+            setRouteDistance("0 km");
+            setRouteDuration("0 min");
+            setSegmentDistances({});
+          }}
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
@@ -349,6 +388,10 @@ export default function Page() {
                     onClick={() => {
                       setActiveRouteId(null);
                       setPlannerCards([]);
+                      setPathPoints([]);
+                      setRouteDistance("0 km");
+                      setRouteDuration("0 min");
+                      setSegmentDistances({});
                     }}
                     className="text-xs px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition"
                     title="Unload current route"
@@ -362,8 +405,16 @@ export default function Page() {
           </nav>
 
           <button type="button" className="mt-auto pt-6 border-t border-gray-800 flex items-center gap-3" onClick={() => setActiveTab("Settings")}>
-            <div className="size-10 rounded-full bg-orange-200 flex items-center justify-center text-orange-800 font-bold">AM</div>
-            <div className="text-left"><p className="text-sm font-medium text-white">Alex Morgan</p></div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="size-10 rounded-full object-cover" />
+            ) : (
+              <div className="size-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+            )}
+            <div className="text-left">
+              <p className="text-sm font-medium text-white truncate max-w-[120px]">{user?.name || "User"}</p>
+            </div>
           </button>
         </aside>
 
@@ -417,4 +468,35 @@ function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode; 
       {icon} <span className="text-sm font-medium">{label}</span>
     </button>
   );
+}
+
+export default function Page() {
+  return (
+    <AuthProvider>
+      <AuthWrapper />
+    </AuthProvider>
+  );
+}
+
+function AuthWrapper() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-screen bg-[#0f1110] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center size-16 rounded-full bg-emerald-500 mb-4 animate-pulse">
+            <FaMap className="text-white" size={32} />
+          </div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return <NavigationContent />;
 }

@@ -163,7 +163,7 @@ export function DashboardScreen({
 											className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-lg hover:bg-[#333] transition"
 										>
 											<div
-												className="size-3 rounded-full flex-shrink-0"
+												className="size-3 rounded-full shrink-0"
 												style={{ backgroundColor: card.color }}
 											/>
 											<div className="flex-1 min-w-0">
