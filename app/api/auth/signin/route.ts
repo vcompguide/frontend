@@ -6,10 +6,10 @@ export async function POST(request: NextRequest) {
 		const body = await request.json();
 
 		const api = new Sdk({
-			baseURL: process.env.SERVER_URL || "http://localhost:9000",
+			baseURL: process.env.SERVER_URL,
 			securityWorker: async () => ({
 				headers: {
-					Authorization: `Bearer ${process.env.LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+					Authorization: `Bearer ${process.env.LOCAL_AUTHENTICATION_KEY}`,
 				},
 			}),
 		});

@@ -68,30 +68,43 @@ const createSearchMarker = () => {
 	return createCustomMarker("#00d492"); // Amber color for search results
 };
 
-// Create POI marker with Material Symbol icon
-const createPOIMarkerIcon = (poiType: string) => {
-	console.log('[Map] Creating POI marker for type:', poiType);
+// Create POI marker with Material Symbol icon - scales with zoom
+const createPOIMarkerIcon = (poiType: string, zoom: number = 14) => {
+	console.log('[Map] Creating POI marker for type:', poiType, 'at zoom:', zoom);
 	
 	// Use the helper function to get icon/color for any amenity type
 	const { icon: iconName, color } = getAmenityIcon(poiType);
 	console.log('[Map] Using icon:', iconName, 'color:', color);
 
+	// Calculate size based on zoom level (similar to Google Maps)
+	// Zoom 10: 12px, Zoom 14: 22px, Zoom 18: 32px - smaller for better visibility
+	const minZoom = 10;
+	const maxZoom = 18;
+	const minSize = 12;
+	const maxSize = 32;
+	
+	const clampedZoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+	const scale = (clampedZoom - minZoom) / (maxZoom - minZoom);
+	const size = minSize + (maxSize - minSize) * scale;
+	const iconSize = size * 0.5; // Icon is half the marker size
+	const borderWidth = Math.max(1.5, size * 0.06);
+
 	const html = `
-		<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+		<div style="position: relative; width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center;">
 			<div style="
 				position: absolute;
-				width: 40px;
-				height: 40px;
+				width: ${size}px;
+				height: ${size}px;
 				background: ${color};
 				border-radius: 50% 50% 50% 0;
 				transform: rotate(-45deg);
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-				border: 3px solid white;
+				box-shadow: 0 ${size * 0.1}px ${size * 0.3}px rgba(0, 0, 0, 0.4);
+				border: ${borderWidth}px solid white;
 			"></div>
 			<span class="material-symbols-outlined" style="
 				position: relative;
 				color: white;
-				font-size: 20px;
+				font-size: ${iconSize}px;
 				z-index: 1;
 				text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 			">${iconName}</span>
@@ -101,9 +114,9 @@ const createPOIMarkerIcon = (poiType: string) => {
 	return L.divIcon({
 		html,
 		className: "poi-marker",
-		iconSize: [40, 40],
-		iconAnchor: [20, 40],
-		popupAnchor: [0, -40],
+		iconSize: [size, size],
+		iconAnchor: [size / 2, size],
+		popupAnchor: [0, -size],
 	});
 };
 
@@ -119,6 +132,29 @@ function MapCenterUpdater({
 			map.flyTo([center.lat, center.lng], 15, { duration: 1.5 });
 		}
 	}, [center, map]);
+	return null;
+}
+
+// Component to track zoom changes and update POI markers
+function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+	const map = useMap();
+
+	useEffect(() => {
+		const handleZoom = () => {
+			onZoomChange(map.getZoom());
+		};
+
+		// Set initial zoom
+		onZoomChange(map.getZoom());
+
+		// Listen to zoom events
+		map.on('zoomend', handleZoom);
+
+		return () => {
+			map.off('zoomend', handleZoom);
+		};
+	}, [map, onZoomChange]);
+
 	return null;
 }
 
@@ -375,6 +411,7 @@ export default function LeafletMap({
 		position: { x: number; y: number };
 		latLng: LatLng;
 	} | null>(null);
+	const [currentZoom, setCurrentZoom] = useState<number>(14);
 
 	useEffect(() => {
 		initDefaultMarker();
@@ -472,7 +509,9 @@ export default function LeafletMap({
 
 				<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
-			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />			<CursorTracker
+			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />
+			<ZoomTracker onZoomChange={setCurrentZoom} />
+			<CursorTracker
 				isPickingCardLocation={isPickingCardLocation}
 				onCursorMove={handleCursorMove}
 			/>				<MarkerSetter
@@ -554,7 +593,7 @@ export default function LeafletMap({
 					<Marker
 						key={`poi-${poi.id}`}
 						position={[poi.lat, poi.lng]}
-					icon={createPOIMarkerIcon(poi.type)}
+					icon={createPOIMarkerIcon(poi.type, currentZoom)}
 					zIndexOffset={60}
 					pane="markerPane"
 				>

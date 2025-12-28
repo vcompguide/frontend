@@ -192,7 +192,7 @@ export function TagFilter({ tag, isSelected, onToggle }: TagFilterProps) {
 			}}
 		>
 			<span
-				className="material-symbols-outlined text-xl"
+				className="material-symbols-outlined text-[25px]"
 				style={{ color: tag.color }}
 			>
 				{tag.icon}

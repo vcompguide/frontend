@@ -59,10 +59,10 @@ function NavigationContent() {
     
     try {
       const api = new Sdk({
-        baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:9000",
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
         securityWorker: async () => ({
           headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY || "taylorswefts"}`,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
           },
         }),
       });
@@ -331,6 +331,13 @@ function NavigationContent() {
     setPois(results);
   }, []);
 
+  const handleClearPath = useCallback(() => {
+    setPathPoints([]);
+    setRouteDistance("0 km");
+    setRouteDuration("0 min");
+    setSegmentDistances({});
+  }, []);
+
   const activeRoute = savedRoutes.find(r => r.id === activeRouteId);
 
   return (
@@ -352,12 +359,7 @@ function NavigationContent() {
           userLocation={userLocation}
           onAddUserLocationPlan={handleAddUserLocationPlan}
           segmentDistances={segmentDistances}
-          onClearPath={() => {
-            setPathPoints([]);
-            setRouteDistance("0 km");
-            setRouteDuration("0 min");
-            setSegmentDistances({});
-          }}
+          onClearPath={handleClearPath}
         />
 
         <aside className="w-64 bg-[#1a1a1a] border-r border-gray-800 p-6 flex flex-col">
