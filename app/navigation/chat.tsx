@@ -4,12 +4,27 @@ import { FaTrash, FaUpload, FaImage } from "react-icons/fa";
 import { LuSend } from "react-icons/lu";
 import { uuidv7 } from "uuidv7";
 
+// Helper function to render markdown-like formatting
+function renderMarkdown(text: string) {
+	// Split by bold markers (**text**)
+	const parts = text.split(/(\*\*.*?\*\*)/g);
+	
+	return parts.map((part, index) => {
+		// Check if this part is bold
+		if (part.startsWith('**') && part.endsWith('**')) {
+			const boldText = part.slice(2, -2);
+			return <strong key={index} className="font-bold text-white">{boldText}</strong>;
+		}
+		return <span key={index}>{part}</span>;
+	});
+}
+
 export function BotMessage({ message }: { message: string }) {
 	return (
 		<div className="flex gap-3">
 			<div className="size-6 rounded-full bg-blue-500 shrink-0 mt-1" />
 			<div className="bg-white/10 p-3 rounded-2xl rounded-tl-none text-xs text-gray-200 leading-relaxed whitespace-pre-wrap">
-				{message}
+				{renderMarkdown(message)}
 			</div>
 		</div>
 	);
@@ -436,6 +451,15 @@ export function ChatBox() {
 				{showDetail && activeTab === "recommendation" && (
 					<>
 						<div ref={chatContentRef} className="p-4 space-y-4 overflow-y-auto flex-1">
+							{recommendation && (
+								<div className="mb-4">
+									<BotMessage message={recommendation} />
+								</div>
+							)}
+							{isLoading && <LoadingMessage />}
+						</div>
+
+						<div className="p-3 bg-black/20 shrink-0 border-t border-white/5">
 							<div className="space-y-3">
 								<div>
 									<label className="text-xs font-semibold text-gray-300 mb-1.5 block">
@@ -476,13 +500,6 @@ export function ChatBox() {
 									{isLoading ? "Getting Recommendations..." : "Get Recommendations"}
 								</button>
 							</div>
-
-							{recommendation && (
-								<div className="mt-4">
-									<BotMessage message={recommendation} />
-								</div>
-							)}
-							{isLoading && <LoadingMessage />}
 						</div>
 					</>
 				)}

@@ -22,6 +22,7 @@ import {
 	userLocationIcon 
 } from "./MapMarkers";
 import { AMENITY_TAGS, getAmenityIcon } from "../../components/filters/TagFilters";
+import { MarkerPopupContent } from "./MarkerPopupContent";
 
 L.Icon.Default.mergeOptions({
 	iconUrl: "/leaflet/marker-icon.png",
@@ -265,6 +266,16 @@ function MapResizer() {
 	return null;
 }
 
+function ClosePopupHandler({ shouldClose }: { shouldClose: boolean }) {
+	const map = useMap();
+	useEffect(() => {
+		if (shouldClose) {
+			map.closePopup();
+		}
+	}, [shouldClose, map]);
+	return null;
+}
+
 function MapZoomController() {
 	const map = useMap();
 
@@ -412,10 +423,18 @@ export default function LeafletMap({
 		latLng: LatLng;
 	} | null>(null);
 	const [currentZoom, setCurrentZoom] = useState<number>(14);
+	const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+	const [closeAllPopups, setCloseAllPopups] = useState<boolean>(false);
 
 	useEffect(() => {
 		initDefaultMarker();
 	}, []);
+
+	useEffect(() => {
+		if (closeAllPopups) {
+			setCloseAllPopups(false);
+		}
+	}, [closeAllPopups]);
 
 	// Log POIs for debugging
 	useEffect(() => {
@@ -440,6 +459,9 @@ export default function LeafletMap({
 
 	const handleContextMenu = useCallback((e: L.LeafletMouseEvent) => {
 		e.originalEvent.preventDefault();
+		// Close any open marker popups
+		setOpenPopupId(null);
+		setCloseAllPopups(true);
 		// Update context menu position directly (opens at new location or replaces existing)
 		setContextMenu({
 			position: { x: e.originalEvent.clientX, y: e.originalEvent.clientY },
@@ -455,6 +477,9 @@ export default function LeafletMap({
 	const handleAddToPlan = useCallback(
 		(position: LatLng) => {
 			onAddPlanFromMap(position);
+			// Close popup after adding to plan
+			setCloseAllPopups(true);
+			setOpenPopupId(null);
 		},
 		[onAddPlanFromMap],
 	);
@@ -507,6 +532,7 @@ export default function LeafletMap({
 					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 				/>
 
+				<ClosePopupHandler shouldClose={closeAllPopups} />
 				<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
 			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />
@@ -530,26 +556,30 @@ export default function LeafletMap({
 				)}
 
 				{/* User Location */}
-				<Marker position={userLocation} icon={userLocationIcon}>
-				<Popup>
-					<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
-						<h3 className="text-white font-bold text-lg mb-2">
-							📍 Your Location
-						</h3>
-						<p className="text-gray-400 text-xs mb-3">
-							You are currently here
-						</p>
-
-						<button
-							type="button"
-							onClick={() => onAddPlanFromMap(userLocation)}
-							className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
-						>
-							Add to Route
-						</button>
-			</div>
-		</Popup>
-	</Marker>
+				<Marker 
+					position={userLocation} 
+					icon={userLocationIcon}
+					eventHandlers={{
+						popupopen: () => {
+							setContextMenu(null);
+							setOpenPopupId('user-location');
+						},
+						popupclose: () => {
+							if (openPopupId === 'user-location') {
+								setOpenPopupId(null);
+							}
+						}
+					}}
+				>
+					<Popup>
+						<MarkerPopupContent
+							title="📍 Your Location"
+							subtitle="You are currently here"
+							latLng={userLocation}
+							onAddToPlan={onAddPlanFromMap}
+						/>
+					</Popup>
+				</Marker>
 			{pathPoints.length > 0 && (
 					<Polyline
 						positions={pathPoints}
@@ -571,20 +601,26 @@ export default function LeafletMap({
 						icon={createSearchMarker()}
 						zIndexOffset={50}
 						pane="markerPane"
+						eventHandlers={{
+							popupopen: () => {
+								setContextMenu(null);
+								setOpenPopupId(`search-${result.place_id}`);
+							},
+							popupclose: () => {
+								if (openPopupId === `search-${result.place_id}`) {
+									setOpenPopupId(null);
+								}
+							}
+						}}
 					>
 						<Popup>
-							<div className="text-sm">
-								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
-								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
-								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
-								<button
-									type="button"
-									onClick={() => onAddPlanFromMap(new LatLng(result.lat, result.lng))}
-									className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
-								>
-									Add to Route
-								</button>
-							</div>
+							<MarkerPopupContent
+								title={result.display_name.split(",")[0]}
+								subtitle={result.display_name.split(",").slice(1).join(",")}
+								latLng={new LatLng(result.lat, result.lng)}
+								onAddToPlan={onAddPlanFromMap}
+								showType={result.type}
+							/>
 						</Popup>
 					</Marker>			))}
 
@@ -593,27 +629,31 @@ export default function LeafletMap({
 					<Marker
 						key={`poi-${poi.id}`}
 						position={[poi.lat, poi.lng]}
-					icon={createPOIMarkerIcon(poi.type, currentZoom)}
-					zIndexOffset={60}
-					pane="markerPane"
-				>
-					<Popup>
-						<div className="text-sm">
-							<p className="font-semibold text-gray-900">{poi.name}</p>
-							{poi.address && (
-								<p className="text-xs text-gray-600 mt-1">{poi.address}</p>
-							)}
-							<p className="text-xs text-emerald-600 mt-1 font-medium capitalize">{poi.type.replace(/_/g, ' ')}</p>
-							<button
-								type="button"
-								onClick={() => onAddPlanFromMap(new LatLng(poi.lat, poi.lng))}
-								className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
-							>
-								Add to Route
-							</button>
-						</div>
-					</Popup>
-				</Marker>
+						icon={createPOIMarkerIcon(poi.type, currentZoom)}
+						zIndexOffset={60}
+						pane="markerPane"
+						eventHandlers={{
+							popupopen: () => {
+								setContextMenu(null);
+								setOpenPopupId(`poi-${poi.id}`);
+							},
+							popupclose: () => {
+								if (openPopupId === `poi-${poi.id}`) {
+									setOpenPopupId(null);
+								}
+							}
+						}}
+					>
+						<Popup>
+							<MarkerPopupContent
+								title={poi.name}
+								subtitle={poi.address}
+								latLng={new LatLng(poi.lat, poi.lng)}
+								onAddToPlan={onAddPlanFromMap}
+								showType={poi.type}
+							/>
+						</Popup>
+					</Marker>
 			))}
 
 			{/* Plan Card Markers - Render last to appear on top */}
@@ -625,21 +665,25 @@ export default function LeafletMap({
 							position={card.position}
 							icon={createCustomMarker(card.color)}
 							zIndexOffset={100}
+							eventHandlers={{
+								popupopen: () => {
+									setContextMenu(null);
+									setOpenPopupId(card.id);
+								},
+								popupclose: () => {
+									if (openPopupId === card.id) {
+										setOpenPopupId(null);
+									}
+								}
+							}}
 						>
 							<Popup>
-								<div className="text-sm">
-									<p className="font-semibold text-gray-900">{card.title}</p>
-									<p className="text-gray-400 text-xs mb-3 line-clamp-2">
-										{card.description}
-									</p>
-									<button
-										type="button"
-										onClick={() => onAddPlanFromMap(card.position!)}
-										className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
-									>
-										Add to Route
-									</button>
-								</div>
+								<MarkerPopupContent
+									title={card.title}
+									subtitle={card.description}
+									latLng={card.position}
+									onAddToPlan={onAddPlanFromMap}
+								/>
 							</Popup>
 						</Marker>
 					),

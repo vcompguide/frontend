@@ -48,7 +48,8 @@ export interface PlannerCard {
   color: string;
   tags: string[];
   position?: LatLng;
-  finished?: boolean;
+  finished: boolean;
+  startTime: number;
 }
 
 interface RouteViewerProps {

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface User {
+  id: string;
   name: string;
   email: string;
   avatarUrl?: string;
@@ -32,7 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (storedToken && storedUser) {
       setAccessToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      console.log("User loaded from localStorage:", parsedUser);
     }
     setIsLoading(false);
   }, []);
@@ -66,13 +69,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = await response.json();
       
-      // Store token and user data
+      // Store token
       setAccessToken(data.access_token);
-      const userData = { name, email, avatarUrl, description };
-      setUser(userData);
-      
       localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(userData));
+      
+      // Fetch full user details including ID
+      try {
+        const userResponse = await fetch("/api/auth/me", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${data.access_token}`,
+          },
+        });
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        } else {
+          console.error("Failed to fetch user details:", await userResponse.text());
+          // Fallback to basic user data
+          const userData = { id: "", name, email, avatarUrl, description };
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+      } catch (userError) {
+        console.error("Error fetching user details:", userError);
+        // Fallback to basic user data
+        const userData = { id: "", name, email, avatarUrl, description };
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+      }
     } catch (error) {
       console.error("Registration error:", error);
       throw error;
@@ -101,17 +128,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Store token
       setAccessToken(data.access_token);
-      
-      // For now, we'll create a basic user object from the email
-      // In a real app, you might want to fetch user details from another endpoint
-      const userData = { 
-        name: email.split('@')[0], 
-        email,
-      };
-      setUser(userData);
-      
       localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(userData));
+      
+      // Fetch full user details including ID
+      try {
+        const userResponse = await fetch("/api/auth/me", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${data.access_token}`,
+          },
+        });
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+          console.log("User logged in:", userData);
+        } else {
+          const errorText = await userResponse.text();
+          console.error("Failed to fetch user details:", errorText);
+          // Fallback to basic user data from email
+          const userData = { id: "", name: email.split('@')[0], email };
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+      } catch (userError) {
+        console.error("Error fetching user details:", userError);
+        // Fallback to basic user data from email
+        const userData = { id: "", name: email.split('@')[0], email };
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+      }
     } catch (error) {
       console.error("Login error:", error);
       throw error;

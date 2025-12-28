@@ -9,8 +9,8 @@ export interface Plan {
   description: string;
   location?: [number, number];
   color: string;
-  finished?: boolean;
-  startTime?: number; // Timestamp for planned start time
+  finished: boolean;
+  startTime: number;
 }
 export interface SavedRoute {
   id: string;

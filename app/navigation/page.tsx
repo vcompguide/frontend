@@ -4,7 +4,7 @@ import { Sdk, RouteRequestDtoModeEnum } from "@/src/backend/RESTful/BackendRESTf
 import { LatLng } from "leaflet";
 import type { LatLng as LatLngType } from "leaflet";
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FaMap, FaRoute } from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
 import { uuidv7 } from "uuidv7";
@@ -43,8 +43,150 @@ function NavigationContent() {
   const [routeDistance, setRouteDistance] = useState<string>("0 km");
   const [routeDuration, setRouteDuration] = useState<string>("0 min");
   const [segmentDistances, setSegmentDistances] = useState<{ [key: string]: number }>({}); // Map of "fromId-toId" -> distance in meters
-  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([
-  ]);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+
+  // Debug: Log user state
+  useEffect(() => {
+    console.log('User state changed:', user);
+    if (user) {
+      console.log('User ID:', user.id);
+      console.log('User has valid ID:', !!user.id && user.id !== '');
+    }
+  }, [user]);
+
+  // Load saved routes from backend on mount
+  useEffect(() => {
+    const loadSavedRoutes = async () => {
+      if (!user) {
+        console.log('Load routes: No user logged in');
+        return;
+      }
+      
+      const userId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+      if (!userId) {
+        console.log('Load routes: NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY not configured');
+        return;
+      }
+      
+      setIsLoadingRoutes(true);
+      console.log('Loading saved routes with key:', userId);
+      
+      try {
+        const api = new Sdk({
+          baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+          securityWorker: async () => ({
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+            },
+          }),
+        });
+
+        const response = await api.savedRoute.savedRouteControllerGetSavedRoutesByUserId(
+          userId,
+          { userId: userId }
+        );
+        
+        console.log('Load routes response:', response.data);
+        
+        if (response.data?.route) {
+          const routes: SavedRoute[] = response.data.route.map(r => ({
+            id: r.id,
+            name: r.name,
+            distance: r.distance,
+            duration: r.duration,
+            color: r.color,
+            waypointsList: r.waypointsList.map(w => ({
+              id: w.id,
+              title: w.title,
+              description: w.description,
+              location: w.location ? [w.location.x, w.location.y] as [number, number] : undefined,
+              color: w.color,
+              finished: w.finished ?? false,
+              startTime: w.startTime ?? Date.now(),
+            })),
+          }));
+          
+          setSavedRoutes(routes);
+          console.log('Loaded', routes.length, 'saved routes from backend');
+        } else {
+          console.log('No routes found in response');
+        }
+      } catch (error) {
+        console.error('Failed to load saved routes from backend:', error);
+      } finally {
+        setIsLoadingRoutes(false);
+      }
+    };
+
+    loadSavedRoutes();
+  }, [user]);
+
+  // Save routes to backend whenever they change
+  useEffect(() => {
+    // Skip saving if we're currently loading routes or if there's no user
+    if (isLoadingRoutes || !user) {
+      console.log('Save routes: Skipped (loading:', isLoadingRoutes, ', user:', !!user, ')');
+      return;
+    }
+    
+    const userId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+    if (!userId) {
+      console.log('Save routes: NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY not configured');
+      return;
+    }
+    
+    const saveRoutesToBackend = async () => {
+      if (savedRoutes.length === 0) {
+        console.log('Save routes: No routes to save');
+        return;
+      }
+      
+      console.log('Preparing to save', savedRoutes.length, 'routes with key:', userId);
+      console.log('Routes to save:', JSON.stringify(savedRoutes, null, 2));
+      
+      try {
+        const api = new Sdk({
+          baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+          securityWorker: async () => ({
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+            },
+          }),
+        });
+
+        const routesToSave = savedRoutes.map(route => ({
+          id: route.id,
+          name: route.name,
+          distance: route.distance,
+          duration: route.duration,
+          color: route.color,
+          waypointsList: route.waypointsList.map(w => ({
+            id: w.id,
+            title: w.title,
+            description: w.description,
+            location: w.location ? { x: w.location[0], y: w.location[1] } : undefined,
+            color: w.color,
+            finished: w.finished,
+            startTime: w.startTime,
+          })),
+        }));
+
+        await api.savedRoute.savedRouteControllerCreateSavedRoute({
+          userId: userId,
+          route: routesToSave,
+        });
+        
+        console.log('Successfully saved', savedRoutes.length, 'routes to backend');
+      } catch (error) {
+        console.error('Failed to save routes to backend:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(saveRoutesToBackend, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [savedRoutes, user, isLoadingRoutes]);
 
   const calculatePathFromCards = useCallback(async (cards: PlannerCard[]): Promise<{ waypoints: LatLngType[], distance: string, duration: string }> => {
     // 1. Filter and format the data
@@ -139,6 +281,7 @@ function NavigationContent() {
             location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
             color: c.color,
             finished: c.finished,
+            startTime: c.startTime,
           }) as Plan)
         };
       }
@@ -161,6 +304,7 @@ function NavigationContent() {
         color: w.color,
         tags: [],
         finished: w.finished,
+        startTime: w.startTime,
       };
     });
 
@@ -217,7 +361,7 @@ function NavigationContent() {
     });
   }, []);
 
-  const handleCreateNewPlan = () => {
+  const handleCreateNewPlan = async () => {
     // Cycle through colors based on the current number of plans
     const colorIndex = plannerCards.length % COLOR_OPTIONS.length;
     const newCard: PlannerCard = {
@@ -226,8 +370,12 @@ function NavigationContent() {
       description: "A new card",
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
+      finished: false,
+      startTime: Date.now(),
     };
-    if (!activeRouteId) {
+    
+    let routeId = activeRouteId;
+    if (!routeId) {
       const colorIndex = savedRoutes.length % COLOR_OPTIONS.length;
       const newRoute: SavedRoute = {
         id: uuidv7(),
@@ -241,15 +389,41 @@ function NavigationContent() {
       const updatedRoutes = [...savedRoutes, newRoute];
       setSavedRoutes(updatedRoutes);
       setActiveRouteId(newRoute.id);
+      routeId = newRoute.id;
     }
+    
     const updatedCards = [...plannerCards, newCard];
-
     setPlannerCards(updatedCards);
-    handleCardsChange(updatedCards);
+    
+    // Calculate route and update distances
+    const result = await calculatePathFromCards(updatedCards);
+    setPathPoints(result.waypoints);
+    
+    // Update savedRoutes with the new card
+    setSavedRoutes(prev => prev.map(route => {
+      if (route.id === routeId) {
+        return {
+          ...route,
+          distance: result.distance,
+          duration: result.duration,
+          waypointsList: updatedCards.map(c => ({
+            id: c.id,
+            title: c.title,
+            description: c.description,
+            location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
+            color: c.color,
+            finished: c.finished,
+            startTime: c.startTime,
+          }) as Plan)
+        };
+      }
+      return route;
+    }));
   };
 
   const handleAddPlanFromMap = useCallback(async (position: LatLng) => {
-    if (!activeRouteId) {
+    let routeId = activeRouteId;
+    if (!routeId) {
       const colorIndex = savedRoutes.length % COLOR_OPTIONS.length;
       const newRoute: SavedRoute = {
         id: uuidv7(),
@@ -263,6 +437,7 @@ function NavigationContent() {
       const updatedRoutes = [...savedRoutes, newRoute];
       setSavedRoutes(updatedRoutes);
       setActiveRouteId(newRoute.id);
+      routeId = newRoute.id;
       if (!viewerOpen) {
         setViewerOpen(true);
       }
@@ -281,12 +456,42 @@ function NavigationContent() {
       color: COLOR_OPTIONS[colorIndex],
       tags: [],
       position: position,
+      finished: false,
+      startTime: Date.now(),
     };
 
     // Add card immediately without waiting for address
     const updatedCards = [...plannerCards, newCard];
     setPlannerCards(updatedCards);
-    handleCardsChange(updatedCards);
+    
+    // Update savedRoutes directly with routeId
+    const updateRouteWithCards = async (cards: PlannerCard[]) => {
+      // Calculate route and update distances
+      const result = await calculatePathFromCards(cards);
+      setPathPoints(result.waypoints);
+      
+      setSavedRoutes(prev => prev.map(route => {
+        if (route.id === routeId) {
+          return {
+            ...route,
+            distance: result.distance,
+            duration: result.duration,
+            waypointsList: cards.map(c => ({
+              id: c.id,
+              title: c.title,
+              description: c.description,
+              location: c.position ? [c.position.lat, c.position.lng] as [number, number] : undefined,
+              color: c.color,
+              finished: c.finished,
+              startTime: c.startTime,
+            }) as Plan)
+          };
+        }
+        return route;
+      }));
+    };
+    
+    updateRouteWithCards(updatedCards);
 
     // Fetch address asynchronously and update the card
     fetchAddress(position.lat, position.lng).then(address => {
@@ -296,7 +501,7 @@ function NavigationContent() {
 
         const updated = [...prevCards];
         updated[cardIndex] = { ...updated[cardIndex], description: address };
-        handleCardsChange(updated);
+        updateRouteWithCards(updated);
         return updated;
       });
     });
@@ -305,7 +510,7 @@ function NavigationContent() {
     if (!viewerOpen) {
       setViewerOpen(true);
     }
-  }, [plannerCards, viewerOpen, handleCardsChange, activeRouteId, savedRoutes]);
+  }, [plannerCards, viewerOpen, activeRouteId, savedRoutes]);
 
   const handleAddUserLocationPlan = useCallback(() => {
     if (!userLocation) return;

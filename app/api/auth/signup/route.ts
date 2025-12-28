@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     });
 
     const response = await api.authentication.authControllerSignup(body);
-
+    console.log(response)
     return NextResponse.json(response.data, { status: 200 });
   } catch (error: any) {
     console.error("Signup proxy error:", error);
