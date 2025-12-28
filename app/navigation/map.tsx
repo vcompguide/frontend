@@ -69,6 +69,38 @@ const createSearchMarker = () => {
 	return createCustomMarker("#00d492"); // Amber color for search results
 };
 
+// Create star marker for favorites
+const createStarMarker = () => {
+	const cacheKey = 'star-marker';
+	const cachedMarker = markerCache.get(cacheKey);
+	if (cachedMarker) {
+		return cachedMarker;
+	}
+
+	// Star SVG icon in yellow/gold color
+	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="#fbbf24"><path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"/></svg>`;
+	
+	const encodedSvg = svgString
+		.replace(/"/g, "'")
+		.replace(/</g, "%3C")
+		.replace(/>/g, "%3E")
+		.replace(/#/g, "%23")
+		.replace(/\s+/g, " ");
+	
+	const dataUrl = `data:image/svg+xml,${encodedSvg}`;
+	
+	const icon = new L.Icon({
+		iconUrl: dataUrl,
+		iconSize: [28, 28],
+		iconAnchor: [14, 28],
+		popupAnchor: [0, -28],
+	});
+	
+	// Cache the marker
+	markerCache.set(cacheKey, icon);
+	return icon;
+};
+
 // Create POI marker with Material Symbol icon - scales with zoom
 const createPOIMarkerIcon = (poiType: string, zoom: number = 14) => {
 	console.log('[Map] Creating POI marker for type:', poiType, 'at zoom:', zoom);
@@ -395,6 +427,14 @@ interface LeafletMapProps {
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
 	onAddPlanFromMap?: (position: LatLng) => void;
+	onAddToFavorites?: (position: LatLng) => void;
+	favorites?: Array<{
+		id: string;
+		name: string;
+		address: string;
+		lat: number;
+		lng: number;
+	}>;
 	onUserLocationChange?: (location: LatLng) => void;
 	pathPoints?: LatLng[];
 }
@@ -406,9 +446,11 @@ export default function LeafletMap({
 	planCards = [],
 	searchResults = [],
 	pois = [],
+	favorites = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
 	onAddPlanFromMap = () => {},
+	onAddToFavorites = () => {},
 	onUserLocationChange = () => {},
 	pathPoints = [],
 }: LeafletMapProps) {
@@ -515,55 +557,53 @@ export default function LeafletMap({
 					latLng={contextMenu.latLng}
 					onClose={handleCloseContextMenu}
 					onAddToPlan={handleAddToPlan}
-				/>
-			)}
+				onAddToFavorites={onAddToFavorites}
+			/>
+		)}
 
-			<MapContainer
-				center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
-				zoom={14}
-				scrollWheelZoom={true}
-				className="w-full h-full outline-none relative"
-				zoomControl={false}
-				attributionControl={false}
-			>
-				{/* Dark Mode Tiles */}
-				<TileLayer
-					url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-				/>
+		<MapContainer
+			center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
+			zoom={14}
+			scrollWheelZoom={true}
+			className="w-full h-full outline-none relative"
+			zoomControl={false}
+			attributionControl={false}
+		>
+			{/* Dark Mode Tiles */}
+			<TileLayer
+				url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+				attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+			/>
 
-				<ClosePopupHandler shouldClose={closeAllPopups} />
-				<MapResizer />
+			<ClosePopupHandler shouldClose={closeAllPopups} />
+			<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
 			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />
 			<ZoomTracker onZoomChange={setCurrentZoom} />
 			<CursorTracker
 				isPickingCardLocation={isPickingCardLocation}
 				onCursorMove={handleCursorMove}
-			/>				<MarkerSetter
-					setDisplay={setHighlighted}
-					isPickingCardLocation={isPickingCardLocation}
-					onCardLocationPicked={handleCardLocationPicked}
-					onContextMenu={handleContextMenu}
-				/>
+			/>
+			<MarkerSetter
+				setDisplay={setHighlighted}
+				isPickingCardLocation={isPickingCardLocation}
+				onCardLocationPicked={handleCardLocationPicked}
+				onContextMenu={handleContextMenu}
+			/>
 
-				{/* Helper/Highlight Marker */}
-				<DisplayMarker displayed={isHighlighted} position={highlightPosition} />
+			{contextMenu && (
+				<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
+			)}
 
-				{/* Context Menu Marker - Shows when context menu is open */}
-				{contextMenu && (
-					<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
-				)}
-
-				{/* User Location */}
-				<Marker 
-					position={userLocation} 
-					icon={userLocationIcon}
-					eventHandlers={{
-						popupopen: () => {
-							setContextMenu(null);
-							setOpenPopupId('user-location');
-						},
+			{/* User Location */}
+			<Marker 
+				position={userLocation} 
+				icon={userLocationIcon}
+				eventHandlers={{
+					popupopen: () => {
+						setContextMenu(null);
+						setOpenPopupId('user-location');
+					},
 						popupclose: () => {
 							if (openPopupId === 'user-location') {
 								setOpenPopupId(null);
@@ -654,6 +694,30 @@ export default function LeafletMap({
 							/>
 						</Popup>
 					</Marker>
+			))}
+
+			{/* Favorite Markers with star icons */}
+			{favorites.length > 0 && favorites.map((favorite) => (
+				<Marker
+					key={`favorite-${favorite.id}`}
+					position={new LatLng(favorite.lat, favorite.lng)}
+					icon={createStarMarker()}
+					zIndexOffset={100}
+					eventHandlers={{
+						popupopen: () => {
+							setContextMenu(null);
+						},
+					}}
+				>
+					<Popup>
+						<MarkerPopupContent
+							title={favorite.name}
+							subtitle={favorite.address}
+							latLng={new LatLng(favorite.lat, favorite.lng)}
+							onAddToPlan={onAddPlanFromMap}
+						/>
+					</Popup>
+				</Marker>
 			))}
 
 			{/* Plan Card Markers - Render last to appear on top */}

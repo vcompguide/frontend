@@ -20,6 +20,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { fetchAddress } from "./MapContextMenu";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { AuthScreen } from "./AuthScreen";
+import { type FavoriteLocation, FavoritesScreen } from "./FavoritesScreen";
 import Link from "next/link";
 const LeafletMap = dynamic(() => import("./map").then(mod => mod.default), {
   ssr: false,
@@ -47,6 +48,8 @@ function NavigationContent() {
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [poiMarkers, setPOIMarkers] = useState<SearchResultMarker[]>([]);
   const [selectedPOIType, setSelectedPOIType] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteLocation[]>([]);
+  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
 
   // Debug: Log user state
   useEffect(() => {
@@ -189,6 +192,125 @@ function NavigationContent() {
     const timeoutId = setTimeout(saveRoutesToBackend, 1000);
     return () => clearTimeout(timeoutId);
   }, [savedRoutes, user, isLoadingRoutes]);
+
+  // Load favorites from backend on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (!user) {
+        console.log('Load favorites: No user logged in');
+        return;
+      }
+      
+      const userId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+      if (!userId) {
+        console.log('Load favorites: NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY not configured');
+        return;
+      }
+      
+      setIsLoadingFavorites(true);
+      console.log('Loading favorites with key:', userId);
+      
+      try {
+        const api = new Sdk({
+          baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+          securityWorker: async () => ({
+            headers: {
+              Authorization: `Bearer ${userId}`,
+            },
+          }),
+        });
+
+        const response = await api.favorites.favoriteControllerGetFavoriteIds(
+          userId,
+          { userId: userId }
+        );
+        
+        console.log('Load favorites response:', response.data);
+        
+        if (response.data?.placeIds && Array.isArray(response.data.placeIds)) {
+          let placeIdsArray = response.data.placeIds;
+          
+          // If the backend stored comma-separated JSON objects as a single string,
+          // we need to split it first
+          if (placeIdsArray.length === 1 && placeIdsArray[0].includes('},{')) {
+            console.log('Splitting comma-separated favorites string');
+            // Split by '}, ' and add back the closing braces
+            placeIdsArray = placeIdsArray[0].split('}, ').map((str, idx, arr) => {
+              // Add back closing brace for all but the last element
+              return idx < arr.length - 1 ? str + '}' : str;
+            });
+            console.log('Split into', placeIdsArray.length, 'parts');
+          }
+          
+          // Parse each placeId string as a JSON object
+          const loadedFavorites: FavoriteLocation[] = placeIdsArray
+            .map((placeIdStr: string) => {
+              try {
+                const trimmed = placeIdStr.trim();
+                console.log('Parsing favorite string:', trimmed.substring(0, 50) + '...');
+                return JSON.parse(trimmed) as FavoriteLocation;
+              } catch (error) {
+                console.error('Failed to parse favorite:', placeIdStr, error);
+                return null;
+              }
+            })
+            .filter((fav): fav is FavoriteLocation => fav !== null);
+          
+          setFavorites(loadedFavorites);
+          console.log('Loaded', loadedFavorites.length, 'favorites:', loadedFavorites);
+        }
+      } catch (error) {
+        console.error('Failed to load favorites:', error);
+      } finally {
+        setIsLoadingFavorites(false);
+      }
+    };
+
+    loadFavorites();
+  }, [user]);
+
+  // Save favorites to backend when they change
+  useEffect(() => {
+    if (isLoadingFavorites) return;
+    if (!user) return;
+    
+    const saveFavorites = async () => {
+      const userId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+      if (!userId) return;
+      
+      try {
+        const api = new Sdk({
+          baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+          securityWorker: async () => ({
+            headers: {
+              Authorization: `Bearer ${userId}`,
+            },
+          }),
+        });
+
+        // Convert favorites to JSON strings for the API
+        const placeIdsString = favorites
+          .map(fav => JSON.stringify(fav))
+          .join(', ');
+        
+        console.log('Saving favorites as string:', placeIdsString.substring(0, 100) + '...');
+        console.log('Saving', favorites.length, 'favorites');
+        
+        await api.favorites.favoriteControllerUpdateFavorites({
+          userId: userId,
+          placeIds: placeIdsString,
+        });
+        
+        console.log('Successfully saved', favorites.length, 'favorites to backend');
+      } catch (error) {
+        console.error('Failed to save favorites to backend:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(saveFavorites, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [favorites, user, isLoadingFavorites]);
 
   const calculatePathFromCards = useCallback(async (cards: PlannerCard[]): Promise<{ waypoints: LatLngType[], distance: string, duration: string }> => {
     // 1. Filter and format the data
@@ -538,6 +660,94 @@ function NavigationContent() {
     setPois(results);
   }, []);
 
+  // Favorites handlers
+  const handleAddToFavorites = useCallback(async (position: LatLng, name?: string) => {
+    const address = await fetchAddress(position.lat, position.lng);
+    const favoriteNumber = favorites.length + 1;
+    const newFavorite: FavoriteLocation = {
+      id: uuidv7(),
+      name: name || `Favourite ${favoriteNumber}`,
+      address: address,
+      lat: position.lat,
+      lng: position.lng,
+    };
+    setFavorites(prev => [...prev, newFavorite]);
+    console.log('Added to favorites:', newFavorite);
+  }, [favorites.length]);
+
+  const handleRemoveFavorite = useCallback((id: string) => {
+    setFavorites(prev => prev.filter(fav => fav.id !== id));
+  }, []);
+
+  const handleCloneFavoriteToPlan = useCallback(async (favorite: FavoriteLocation) => {
+    // Cycle through colors based on the current number of plans
+    const colorIndex = plannerCards.length % COLOR_OPTIONS.length;
+    
+    const newCard: PlannerCard = {
+      id: uuidv7(),
+      title: favorite.name,
+      description: favorite.address,
+      color: COLOR_OPTIONS[colorIndex],
+      tags: [],
+      position: new LatLng(favorite.lat, favorite.lng),
+      finished: false,
+      startTime: Date.now(),
+    };
+    
+    const updatedCards = [...plannerCards, newCard];
+    setPlannerCards(updatedCards);
+    
+    // Trigger distance evaluation for the updated cards
+    try {
+      const result = await calculatePathFromCards(updatedCards);
+      setPathPoints(result.waypoints);
+      
+      // Update the active route with new distance and duration
+      if (activeRouteId) {
+        setSavedRoutes(prev =>
+          prev.map(r =>
+            r.id === activeRouteId
+              ? {
+                  ...r,
+                  distance: result.distance,
+                  duration: result.duration,
+                  waypointsList: updatedCards.map(c => ({
+                    lat: c.position!.lat,
+                    lng: c.position!.lng,
+                    title: c.title,
+                    description: c.description || '',
+                    tags: c.tags || [],
+                    color: c.color,
+                    finished: c.finished,
+                    id: c.id,
+                    startTime: c.startTime,
+                  })),
+                }
+              : r
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to calculate path after cloning favorite:', error);
+    }
+    
+    // Open route viewer if closed
+    if (!viewerOpen) {
+      setViewerOpen(true);
+    }
+    
+    console.log('Cloned favorite to plan:', favorite.name);
+  }, [plannerCards, viewerOpen, calculatePathFromCards, activeRouteId]);
+
+  const handleReorderFavorites = useCallback((fromIndex: number, toIndex: number) => {
+    setFavorites(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  }, []);
+
   const fetchPOIsByType = useCallback(async (type: string) => {
     if (!userLocation) {
       console.log('User location not available');
@@ -634,6 +844,7 @@ function NavigationContent() {
             <SidebarItem icon={<MdDashboard />} label="Dashboard" active={activeTab === "Dashboard"} onClick={() => setActiveTab("Dashboard")} />
             <SidebarItem icon={<FaMap />} label="Map View" active={activeTab === "Map View"} onClick={() => setActiveTab("Map View")} />
             <SidebarItem icon={<FaRoute />} label="Saved Routes" active={activeTab === "Saved"} onClick={() => setActiveTab("Saved")} />
+            <SidebarItem icon={<span>⭐</span>} label="Favorites" active={activeTab === "Favorites"} onClick={() => setActiveTab("Favorites")} />
 
             {/* POI Filters Section */}
             <div className="mt-6 pt-4 border-t border-gray-800">
@@ -750,6 +961,14 @@ function NavigationContent() {
         <main className="relative flex-1 h-full overflow-hidden">
           {activeTab === "Dashboard" && <DashboardScreen planCards={plannerCards} savedRoutes={savedRoutes} onNavigate={setActiveTab} />}
           {activeTab === "Saved" && <SavedRoutesScreen initialRoutes={savedRoutes} onRoutesChange={setSavedRoutes} onImportToPlanner={handleImportRoute} />}
+          {activeTab === "Favorites" && (
+            <FavoritesScreen
+              favorites={favorites}
+              onRemove={handleRemoveFavorite}
+              onCloneToPlan={handleCloneFavoriteToPlan}
+              onReorder={handleReorderFavorites}
+            />
+          )}
           {activeTab === "Settings" && <SettingsScreen />}
 
           {activeTab === "Map View" && (
@@ -762,7 +981,9 @@ function NavigationContent() {
                   centerLocation={mapCenter}
                   searchResults={[...searchResults, ...poiMarkers]}
                   pois={pois}
+                  favorites={favorites}
                   onAddPlanFromMap={handleAddPlanFromMap}
+                  onAddToFavorites={handleAddToFavorites}
                   onUserLocationChange={setUserLocation}
                   pathPoints={pathPoints}
                 />

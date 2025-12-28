@@ -35,6 +35,7 @@ interface MapContextMenuProps {
 	latLng: LatLng;
 	onClose: () => void;
 	onAddToPlan: (position: LatLng) => void;
+	onAddToFavorites?: (position: LatLng) => void;
 }
 
 // Separate function to fetch address from coordinates
@@ -230,6 +231,7 @@ export function MapContextMenu({
 	latLng,
 	onClose,
 	onAddToPlan,
+	onAddToFavorites,
 }: MapContextMenuProps) {
 	const [weather, setWeather] = useState<WeatherData | null>(null);
 	const [address, setAddress] = useState<string>("");
@@ -536,7 +538,7 @@ export function MapContextMenu({
 				</div>
 
 				{/* Actions */}
-				<div className="p-2">
+				<div className="p-2 space-y-2">
 					<button
 						type="button"
 						onClick={() => {
@@ -548,6 +550,18 @@ export function MapContextMenu({
 						<FaMapMarkerAlt size={14} />
 						Add to Current Route
 					</button>
+					{onAddToFavorites && (
+						<button
+							type="button"
+							onClick={() => {
+								onAddToFavorites(latLng);
+								onClose();
+							}}
+							className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 rounded-lg text-sm transition flex items-center justify-center gap-2"
+						>
+							⭐ Add to Favorites
+						</button>
+					)}
 				</div>
 			</div>
 		</>
