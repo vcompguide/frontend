@@ -120,15 +120,16 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 					: { coordinates, radius };
 
 				console.log('[FilterBox] Bulk request body:', requestBody);
-				const response = await fetch("http://localhost:9000/api/map/nearby/bulk", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(requestBody),
-				});
+			const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/map/nearby/bulk`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+				},
+				body: JSON.stringify(requestBody),
+			});
 
-				if (!response.ok) {
+			if (!response.ok) {
 					throw new Error("Failed to fetch nearby POIs for route");
 				}
 

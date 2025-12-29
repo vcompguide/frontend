@@ -328,19 +328,26 @@ export function ChatBox() {
 		setImageResult(null);
 
 		try {
-			const api = new Sdk({
-				baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
-				securityWorker: async () => ({
-					headers: {
-						Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
-					},
-				}),
+			// Create FormData with key 'file'
+			const formData = new FormData();
+			formData.append('file', selectedImage);
+			if (imageContext.trim()) {
+				formData.append('additionalContext', imageContext.trim());
+			}
+
+			const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/chatbot/image-location`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+				},
+				body: formData,
 			});
 
-			const { data } = await api.chatbot.chatbotControllerAnalyzeImageLocation({
-				file: selectedImage,
-				additionalContext: imageContext.trim() || undefined,
-			});
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data = await response.json();
 			console.log("Image Search API response:", data);
 			if (data.success) {
 				setImageResult({

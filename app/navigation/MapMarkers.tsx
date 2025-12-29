@@ -105,42 +105,24 @@ export const userLocationIcon = L.divIcon({
   iconAnchor: [25, 25],
 });
 
-// Highlight/Right-Click Marker (Rune vàng kim)
+// Highlight/Right-Click Marker (Simple green marker)
 export const highlightMarkerIcon = L.divIcon({
   className: "custom-highlight-marker",
   html: `
-    <div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;">
-      <div style="
-        position: absolute;
-        width: 30px; height: 30px;
-        background: rgba(255, 215, 0, 0.6); /* Gold */
-        border-radius: 50%;
-        filter: blur(8px);
-        animation: pulse-gold 2s infinite;
-      "></div>
-
-      <div style="position: absolute; width: 100%; height: 100%; animation: spin-slow 12s linear infinite;">
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="46" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="15 10" opacity="0.8" />
-          <path d="M50 10 L50 20 M50 80 L50 90 M10 50 L20 50 M80 50 L90 50" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
-          <rect x="48" y="4" width="4" height="4" fill="#FFD700" transform="rotate(45 50 6)"/>
-          <rect x="48" y="92" width="4" height="4" fill="#FFD700" transform="rotate(45 50 94)"/>
-        </svg>
-      </div>
-
+    <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
       <div style="
         position: absolute;
         width: 14px; height: 14px;
-        background: #FFD700;
-        border: 2px solid #FFF;
+        background: #10b981;
+        border: 2px solid #047857;
         border-radius: 50%;
-        box-shadow: 0 0 10px #FFD700, 0 0 20px #FF8C00; /* Gold/Orange glow */
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
         z-index: 2;
       "></div>
     </div>
   `,
-  iconSize: [64, 64],
-  iconAnchor: [32, 32],
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
 });
 
 // --- 5. CACHING LOGIC ---

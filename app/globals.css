@@ -241,3 +241,25 @@ body.cursor-grabbing * {
 	filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 1px rgba(251, 191, 36, 0.9));
 	z-index: 1000 !important;
 }
+
+/* POI Marker styles */
+.poi-marker {
+	background: transparent !important;
+	border: none !important;
+}
+
+.poi-marker .material-symbols-outlined {
+	font-family: 'Material Symbols Outlined' !important;
+	font-weight: normal;
+	font-style: normal;
+	font-size: inherit;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	-webkit-font-feature-settings: 'liga';
+	-webkit-font-smoothing: antialiased;
+}

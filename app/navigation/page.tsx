@@ -749,11 +749,8 @@ function NavigationContent() {
   }, []);
 
   const fetchPOIsByType = useCallback(async (type: string) => {
-    if (!userLocation) {
-      console.log('User location not available');
-      return;
-    }
-
+    console.log('Fetching POIs by tag:', type);
+    
     try {
       const api = new Sdk({
         baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
@@ -764,37 +761,44 @@ function NavigationContent() {
         }),
       });
 
-      const response = await api.gmaps.gmapsControllerGetNearbyPlaces({
-        location: {
-          lat: userLocation.lat,
-          lon: userLocation.lng,
-        },
-        type: type as any,
-        radius: 5000, // 5km radius
+      // Use the place API to get places by tags
+      const response = await api.place.placeControllerGetPlacesByTags({
+        tags: type,
       });
 
       console.log('POI response:', response.data);
 
-      // Convert to SearchResultMarker format
-      if (response.data && (response.data as any).places) {
-        const places = (response.data as any).places as any[];
-        const markers: SearchResultMarker[] = places.map((place: any, index: number) => ({
-          place_id: index,
-          display_name: place.name,
-          lat: place.location?.y || place.location?.lat,
-          lng: place.location?.x || place.location?.lng,
+      // Convert to POIResult format for proper POI marker rendering
+      if (response.data && response.data.places) {
+        const places = response.data.places;
+        console.log('Found', places.length, 'places with tag:', type);
+        
+        const poiResults: POIResult[] = places.map((place, index) => ({
+          id: `${type}-${index}-${place.name}`,
+          name: place.name,
+          lat: place.location.x,  // x is latitude (e.g., 10.77...)
+          lng: place.location.y,  // y is longitude (e.g., 106.69...)
           type: type,
+          address: place.tags?.join(', ') || type,
         }));
-        setPOIMarkers(markers);
+        
+        console.log('Setting POIs:', poiResults);
+        setPois(poiResults);
+        setSelectedPOIType(type);
+      } else {
+        console.log('No places found in response');
+        setPois([]);
         setSelectedPOIType(type);
       }
     } catch (error) {
       console.error('Failed to fetch POIs:', error);
+      setPois([]);
     }
-  }, [userLocation]);
+  }, []);
 
   const clearPOIs = useCallback(() => {
     setPOIMarkers([]);
+    setPois([]);
     setSelectedPOIType(null);
   }, []);
 
@@ -852,69 +856,80 @@ function NavigationContent() {
               <div className="flex flex-col gap-1">
                 <button
                   type="button"
-                  onClick={() => selectedPOIType === 'restaurant' ? clearPOIs() : fetchPOIsByType('restaurant')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
-                    selectedPOIType === 'restaurant'
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                  onClick={() => selectedPOIType === 'museum' ? clearPOIs() : fetchPOIsByType('museum')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'museum'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
                       : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  🍽️ Restaurants
+                  🏛️ Museums
                 </button>
                 <button
                   type="button"
-                  onClick={() => selectedPOIType === 'cafe' ? clearPOIs() : fetchPOIsByType('cafe')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
-                    selectedPOIType === 'cafe'
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                  onClick={() => selectedPOIType === 'history' ? clearPOIs() : fetchPOIsByType('history')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'history'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
                       : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  ☕ Cafes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectedPOIType === 'tourist_attraction' ? clearPOIs() : fetchPOIsByType('tourist_attraction')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
-                    selectedPOIType === 'tourist_attraction'
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  🏛️ Attractions
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectedPOIType === 'lodging' ? clearPOIs() : fetchPOIsByType('lodging')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
-                    selectedPOIType === 'lodging'
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  🏨 Hotels
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectedPOIType === 'shopping_mall' ? clearPOIs() : fetchPOIsByType('shopping_mall')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
-                    selectedPOIType === 'shopping_mall'
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  🛍️ Shopping
+                  📜 History
                 </button>
                 <button
                   type="button"
                   onClick={() => selectedPOIType === 'park' ? clearPOIs() : fetchPOIsByType('park')}
-                  className={`text-xs px-3 py-2 rounded-lg text-left transition ${
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
                     selectedPOIType === 'park'
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
                       : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
                   🌳 Parks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'nature' ? clearPOIs() : fetchPOIsByType('nature')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'nature'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🌿 Nature
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'landmark' ? clearPOIs() : fetchPOIsByType('landmark')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'landmark'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🗺️ Landmarks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'tourism' ? clearPOIs() : fetchPOIsByType('tourism')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'tourism'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🎫 Tourism
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectedPOIType === 'zoo' ? clearPOIs() : fetchPOIsByType('zoo')}
+                  className={`text-xs px-3 py-2 rounded-lg text-left transition font-medium ${
+                    selectedPOIType === 'zoo'
+                      ? 'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  🦁 Zoos
                 </button>
               </div>
             </div>
@@ -979,7 +994,7 @@ function NavigationContent() {
                   onCardLocationPicked={onLocationPicked}
                   planCards={plannerCards}
                   centerLocation={mapCenter}
-                  searchResults={[...searchResults, ...poiMarkers]}
+                  searchResults={searchResults}
                   pois={pois}
                   favorites={favorites}
                   onAddPlanFromMap={handleAddPlanFromMap}

@@ -1002,7 +1002,7 @@ function WeatherDisplay({
     try {
       const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
-      if (!API_KEY || true) {
+      if (!API_KEY) {
         console.warn("Weather API key not configured, using mock data");
         // Return mock weather data
         setWeather({

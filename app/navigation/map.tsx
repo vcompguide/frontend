@@ -480,8 +480,15 @@ export default function LeafletMap({
 
 	// Log POIs for debugging
 	useEffect(() => {
+		console.log('[Map] POIs prop updated, count:', pois.length);
 		if (pois.length > 0) {
-			console.log('[Map] Rendering', pois.length, 'POI markers:', pois.map(p => ({ id: p.id, name: p.name, type: p.type })));
+			console.log('[Map] Rendering', pois.length, 'POI markers:', pois.map(p => ({ 
+				id: p.id, 
+				name: p.name, 
+				type: p.type,
+				lat: p.lat,
+				lng: p.lng 
+			})));
 		}
 	}, [pois]);
 
@@ -569,9 +576,9 @@ export default function LeafletMap({
 			zoomControl={false}
 			attributionControl={false}
 		>
-			{/* Dark Mode Tiles */}
+			{/* Light Mode Tiles */}
 			<TileLayer
-				url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+				url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 				attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 			/>
 
@@ -591,11 +598,12 @@ export default function LeafletMap({
 				onContextMenu={handleContextMenu}
 			/>
 
-			{contextMenu && (
+			{contextMenu && contextMenu.latLng && contextMenu.latLng.lat !== undefined && contextMenu.latLng.lng !== undefined && (
 				<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
 			)}
 
 			{/* User Location */}
+			{userLocation && userLocation.lat !== 0 && userLocation.lng !== 0 && (
 			<Marker 
 				position={userLocation} 
 				icon={userLocationIcon}
@@ -620,6 +628,7 @@ export default function LeafletMap({
 						/>
 					</Popup>
 				</Marker>
+			)}
 			{pathPoints.length > 0 && (
 					<Polyline
 						positions={pathPoints}
@@ -634,7 +643,7 @@ export default function LeafletMap({
 				)}
 
 				{/* Search Result Markers - Render first to appear below plan markers */}
-				{searchResults.length > 0 && searchResults.map((result) => (
+		{searchResults.length > 0 && searchResults.filter(r => r.lat != null && r.lng != null).map((result) => (
 					<Marker
 						key={`search-${result.place_id}`}
 						position={[result.lat, result.lng]}
@@ -665,7 +674,7 @@ export default function LeafletMap({
 					</Marker>			))}
 
 				{/* POI Markers - Filtered amenities */}
-				{pois.length > 0 && pois.map((poi) => (
+			{pois.length > 0 && pois.filter(p => p.lat && p.lng).map((poi) => (
 					<Marker
 						key={`poi-${poi.id}`}
 						position={[poi.lat, poi.lng]}
@@ -697,7 +706,7 @@ export default function LeafletMap({
 			))}
 
 			{/* Favorite Markers with star icons */}
-			{favorites.length > 0 && favorites.map((favorite) => (
+			{favorites.length > 0 && favorites.filter(f => f.lat && f.lng).map((favorite) => (
 				<Marker
 					key={`favorite-${favorite.id}`}
 					position={new LatLng(favorite.lat, favorite.lng)}
