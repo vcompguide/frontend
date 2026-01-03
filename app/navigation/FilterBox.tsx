@@ -120,7 +120,8 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 					: { coordinates, radius };
 
 				console.log('[FilterBox] Bulk request body:', requestBody);
-			const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/map/nearby/bulk`, {
+			const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, '') || 'http://localhost:9000';
+			const response = await fetch(`${serverUrl}/api/map/nearby/bulk`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -129,28 +130,39 @@ export function FilterBox({ userLocation, plannerCards, onPOIsFound }: FilterBox
 				body: JSON.stringify(requestBody),
 			});
 
+			console.log('[FilterBox] Bulk response status:', response.status);
 			if (!response.ok) {
-					throw new Error("Failed to fetch nearby POIs for route");
-				}
+				const errorText = await response.text();
+				console.error('[FilterBox] Bulk request failed:', response.status, errorText);
+				throw new Error(`Failed to fetch nearby POIs for route: ${response.status} ${errorText}`);
+			}
 
 				const data = await response.json();
-				console.log('[FilterBox] Bulk location API Response:', data);
+				console.log('[FilterBox] Bulk location API Response:', JSON.stringify(data, null, 2));
+				
 				// Flatten grouped data into single array
 				const poisArray: POIResult[] = [];
 				if (data.data && Array.isArray(data.data)) {
+					console.log('[FilterBox] Processing', data.data.length, 'locations');
 					for (const location of data.data) {
-						if (location.places && typeof location.places === 'object') {
-							for (const category in location.places) {
-								const categoryPOIs = location.places[category];
-								console.log(`[FilterBox] Processing category ${category}:`, categoryPOIs);
-								if (Array.isArray(categoryPOIs)) {
-									poisArray.push(...categoryPOIs);
-								}
+						console.log('[FilterBox] Location data:', location);
+						// Categories are directly on the location object, not in a 'places' property
+						// Skip metadata properties like latitude, longitude, count
+						const skipKeys = ['latitude', 'longitude', 'count'];
+						for (const category in location) {
+							if (skipKeys.includes(category)) continue;
+							
+							const categoryPOIs = location[category];
+							console.log(`[FilterBox] Processing category ${category}:`, categoryPOIs);
+							if (Array.isArray(categoryPOIs)) {
+								poisArray.push(...categoryPOIs);
 							}
 						}
 					}
+				} else {
+					console.error('[FilterBox] Unexpected response structure. Expected data.data to be an array, got:', typeof data.data);
 				}
-				console.log('[FilterBox] Flattened POI array:', poisArray);
+				console.log('[FilterBox] Flattened POI array:', poisArray.length, 'POIs');
 				onPOIsFound(poisArray);
 			}
 		} catch (error) {

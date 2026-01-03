@@ -160,7 +160,7 @@ export default function FeaturesPage() {
               title="Route Planning"
               description="Create optimized routes that save time and enhance your experience."
               features={[
-                "Multi-stop route optimization",
+                "Tinkering with orders",
                 "Travel time estimates",
                 "Alternative between routes",
                 "Customize your travel",
@@ -173,23 +173,19 @@ export default function FeaturesPage() {
               description="Find exactly what you're looking for with advanced filtering options."
               features={[
                 "Filter by category and type",
-                "Distance and radius filters",
-                "Price range filtering",
-                "Rating and review filters",
-                "Opening hours filter"
+                "Multiple selection",
+                "Proximity or along routes",
               ]}
             />
 
             <FeatureCard
               icon={Bookmark}
-              title="Saved Routes"
-              description="Save and manage your favorite routes for quick access anytime."
+              title="Favourite"
+              description="Save and manage your favorite locations for quick access anytime."
               features={[
-                "Unlimited route storage",
-                "Route sharing with friends",
-                "Edit saved routes easily",
-                "Route history tracking",
-                "Export routes to other apps"
+                "Unlimited location storage",
+                "History tracking",
+                "Infintely reusable in planning"
               ]}
             />
 
@@ -198,11 +194,7 @@ export default function FeaturesPage() {
               title="POI Discovery"
               description="Discover curated points of interest throughout the city."
               features={[
-                "100+ handpicked locations",
-                "Detailed POI information",
-                "User reviews and ratings",
-                "Photo galleries",
-                "Insider tips and tricks"
+                "30+ handpicked locations",
               ]}
             />
           </div>
@@ -222,182 +214,8 @@ export default function FeaturesPage() {
             <QuickFeature
               icon={Search}
               title="Advanced Search"
-              description="Find locations, restaurants, attractions, and more with powerful search capabilities"
+              description="LLM powered chatbot and recommendation engine"
             />
-            <QuickFeature
-              icon={Navigation}
-              title="Turn-by-Turn Navigation"
-              description="Get real-time directions with voice guidance and visual cues"
-            />
-            <QuickFeature
-              icon={Share2}
-              title="Social Sharing"
-              description="Share your routes, discoveries, and experiences with friends and family"
-            />
-            <QuickFeature
-              icon={Star}
-              title="Favorites System"
-              description="Mark your favorite places and create custom collections"
-            />
-            <QuickFeature
-              icon={Bell}
-              title="Smart Notifications"
-              description="Receive timely updates about events, offers, and nearby attractions"
-            />
-            <QuickFeature
-              icon={Clock}
-              title="Opening Hours"
-              description="Real-time information about business hours and availability"
-            />
-          </div>
-        </section>
-
-        {/* Feature Highlights */}
-        <section className="bg-linear-to-br from-[#00D26A]/10 to-[#132020] rounded-3xl p-12 md:p-16 border border-[#00D26A]/20">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="w-12 h-1 bg-[#00D26A] rounded-full"></div>
-              <h2 className="text-4xl font-bold">Why Choose Our Platform?</h2>
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#00D26A] flex items-center justify-center shrink-0">
-                    <Shield size={24} className="text-black" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xl mb-2">Reliable & Secure</h3>
-                    <p className="text-gray-400">
-                      Your data is protected with enterprise-grade security. Travel with confidence 
-                      knowing your information is safe.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#00D26A] flex items-center justify-center shrink-0">
-                    <TrendingUp size={24} className="text-black" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xl mb-2">Constantly Improving</h3>
-                    <p className="text-gray-400">
-                      We regularly update our platform with new features, locations, and improvements 
-                      based on user feedback.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#00D26A] flex items-center justify-center shrink-0">
-                    <Users size={24} className="text-black" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xl mb-2">Community Driven</h3>
-                    <p className="text-gray-400">
-                      Benefit from insights shared by thousands of travelers and local experts who 
-                      know the city best.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="bg-[#132020] rounded-2xl p-8 border border-white/5">
-                <h3 className="text-2xl font-bold mb-6">Feature Statistics</h3>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-400">Map Accuracy</span>
-                      <span className="text-[#00D26A] font-bold">99%</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-2">
-                      <div className="bg-[#00D26A] h-2 rounded-full" style={{ width: "99%" }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-400">User Satisfaction</span>
-                      <span className="text-[#00D26A] font-bold">95%</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-2">
-                      <div className="bg-[#00D26A] h-2 rounded-full" style={{ width: "95%" }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-400">AI Response Quality</span>
-                      <span className="text-[#00D26A] font-bold">92%</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-2">
-                      <div className="bg-[#00D26A] h-2 rounded-full" style={{ width: "92%" }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-400">Feature Completeness</span>
-                      <span className="text-[#00D26A] font-bold">88%</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-2">
-                      <div className="bg-[#00D26A] h-2 rounded-full" style={{ width: "88%" }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Coming Soon Features */}
-        <section className="space-y-12">
-          <div className="text-center">
-            <div className="w-12 h-1 bg-[#00D26A] mx-auto mb-6 rounded-full"></div>
-            <h2 className="text-4xl font-bold mb-4">Coming Soon</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              Exciting new features we're working on to make your experience even better
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-[#132020] p-8 rounded-3xl border border-white/5 opacity-80">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <Calendar className="text-gray-400" size={24} />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Event Calendar</h3>
-              <p className="text-gray-400 text-sm">
-                Stay updated with local events, festivals, and special occasions happening around the city.
-              </p>
-              <div className="mt-4 inline-block px-3 py-1 bg-[#00D26A]/10 text-[#00D26A] rounded-full text-xs font-medium">
-                Q2 2025
-              </div>
-            </div>
-
-            <div className="bg-[#132020] p-8 rounded-3xl border border-white/5 opacity-80">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <Heart className="text-gray-400" size={24} />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Personalized Recommendations</h3>
-              <p className="text-gray-400 text-sm">
-                Get AI-powered suggestions based on your preferences, past trips, and travel style.
-              </p>
-              <div className="mt-4 inline-block px-3 py-1 bg-[#00D26A]/10 text-[#00D26A] rounded-full text-xs font-medium">
-                Q3 2025
-              </div>
-            </div>
-
-            <div className="bg-[#132020] p-8 rounded-3xl border border-white/5 opacity-80">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <Users className="text-gray-400" size={24} />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Group Planning</h3>
-              <p className="text-gray-400 text-sm">
-                Collaborate with friends and family to plan trips together in real-time.
-              </p>
-              <div className="mt-4 inline-block px-3 py-1 bg-[#00D26A]/10 text-[#00D26A] rounded-full text-xs font-medium">
-                Q4 2025
-              </div>
-            </div>
           </div>
         </section>
 

@@ -598,12 +598,11 @@ export default function LeafletMap({
 				onContextMenu={handleContextMenu}
 			/>
 
-			{contextMenu && contextMenu.latLng && contextMenu.latLng.lat !== undefined && contextMenu.latLng.lng !== undefined && (
+			{contextMenu && (
 				<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
 			)}
 
 			{/* User Location */}
-			{userLocation && userLocation.lat !== 0 && userLocation.lng !== 0 && (
 			<Marker 
 				position={userLocation} 
 				icon={userLocationIcon}
@@ -628,7 +627,6 @@ export default function LeafletMap({
 						/>
 					</Popup>
 				</Marker>
-			)}
 			{pathPoints.length > 0 && (
 					<Polyline
 						positions={pathPoints}
@@ -643,7 +641,7 @@ export default function LeafletMap({
 				)}
 
 				{/* Search Result Markers - Render first to appear below plan markers */}
-		{searchResults.length > 0 && searchResults.filter(r => r.lat != null && r.lng != null).map((result) => (
+				{searchResults.length > 0 && searchResults.map((result) => (
 					<Marker
 						key={`search-${result.place_id}`}
 						position={[result.lat, result.lng]}
@@ -674,7 +672,7 @@ export default function LeafletMap({
 					</Marker>			))}
 
 				{/* POI Markers - Filtered amenities */}
-			{pois.length > 0 && pois.filter(p => p.lat && p.lng).map((poi) => (
+				{pois.length > 0 && pois.map((poi) => (
 					<Marker
 						key={`poi-${poi.id}`}
 						position={[poi.lat, poi.lng]}
@@ -706,7 +704,7 @@ export default function LeafletMap({
 			))}
 
 			{/* Favorite Markers with star icons */}
-			{favorites.length > 0 && favorites.filter(f => f.lat && f.lng).map((favorite) => (
+			{favorites.length > 0 && favorites.map((favorite) => (
 				<Marker
 					key={`favorite-${favorite.id}`}
 					position={new LatLng(favorite.lat, favorite.lng)}
