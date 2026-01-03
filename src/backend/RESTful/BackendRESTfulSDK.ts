@@ -127,6 +127,55 @@ export interface SaveMessageDto {
   content: string;
 }
 
+export interface FavoriteIdsResponse {
+  /**
+   * Indicates whether the request was successful
+   * @example true
+   */
+  success: boolean;
+  /**
+   * List of favorite place IDs for the user
+   * @example ["676f1a2b3c4d5e6f7a8b9c0d","676f1a2b3c4d5e6f7a8b9c0e","676f1a2b3c4d5e6f7a8b9c0f"]
+   */
+  placeIds: string[];
+  /**
+   * Total number of favorites
+   * @example 3
+   */
+  total: number;
+}
+
+export interface UpdateFavoritesDto {
+  /**
+   * User ID to save to favorites
+   * @example "676f1a2b3c4d5e6f7a8b9c0f"
+   */
+  userId: string;
+  /**
+   * List of place IDs to save as favorites
+   * @example "676f1a2b3c4d5e6f7a8b9c0d, 676f1a2b3c4d5e6f7a8b9c0e, 676f1a2b3c4d5e6f7a8b9c0f"
+   */
+  placeIds: string;
+}
+
+export interface UpdateFavoriteResponse {
+  /**
+   * Indicates whether the operation was successful
+   * @example true
+   */
+  success: boolean;
+  /**
+   * Success or error message
+   * @example "Favorites saved successfully"
+   */
+  message: string;
+  /**
+   * Total number of favorites after the operation
+   * @example 5
+   */
+  count: number;
+}
+
 export interface MessageDto {
   role: MessageDtoRoleEnum;
   content: string;
@@ -703,6 +752,54 @@ export interface NearbyResponse {
   count: number;
 }
 
+export interface CreatePlanDto {
+  id: string;
+  title: string;
+  description: string;
+  location?: GeoPointDto;
+  color: string;
+  finished?: boolean;
+  startTime?: number;
+}
+
+export interface CreateRouteDto {
+  id: string;
+  name: string;
+  distance: string;
+  duration: string;
+  waypointsList: CreatePlanDto[];
+  color: string;
+}
+
+export interface CreateSavedRouteDto {
+  userId: string;
+  route: CreateRouteDto[];
+}
+
+export interface CreatePlanResponse {
+  id: string;
+  title: string;
+  description: string;
+  location?: GeoPointResponse;
+  color: string;
+  finished?: boolean;
+  startTime?: number;
+}
+
+export interface CreateRouteResponse {
+  id: string;
+  name: string;
+  distance: string;
+  duration: string;
+  waypointsList: CreatePlanResponse[];
+  color: string;
+}
+
+export interface CreateSavedRouteResponse {
+  userId: string;
+  route: CreateRouteResponse[];
+}
+
 export enum MessageDtoRoleEnum {
   Chatbot = "chatbot",
   System = "system",
@@ -861,7 +958,7 @@ export class HttpClient<SecurityDataType = unknown> {
   }: ApiConfig<SecurityDataType> = {}) {
     this.instance = axios.create({
       ...axiosConfig,
-      baseURL: axiosConfig.baseURL || "http://localhost:9000",
+      baseURL: axiosConfig.baseURL || "undefined",
     });
     this.secure = secure;
     this.format = format;
@@ -975,7 +1072,6 @@ export class HttpClient<SecurityDataType = unknown> {
 /**
  * @title VCOMPGUIDE V1 API Docs
  * @version 1.0
- * @baseUrl http://localhost:9000
  * @contact
  */
 export class Sdk<
@@ -1131,6 +1227,55 @@ export class Sdk<
     ) =>
       this.request<MessageResponse, any>({
         path: `/api/chat/save`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+  };
+  favorites = {
+    /**
+     * @description Query operation: Retrieve list of favorite place IDs for the authenticated user
+     *
+     * @tags Favorites
+     * @name FavoriteControllerGetFavoriteIds
+     * @summary Get favorite place IDs
+     * @request GET:/api/favorites/{userId}
+     * @secure
+     */
+    favoriteControllerGetFavoriteIds: (
+      userId: string,
+      query: {
+        userId: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<FavoriteIdsResponse, any>({
+        path: `/api/favorites/${userId}`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Write operation: Save list of favorite place IDs (replaces existing favorites)
+     *
+     * @tags Favorites
+     * @name FavoriteControllerUpdateFavorites
+     * @summary Update favorites
+     * @request POST:/api/favorites
+     * @secure
+     */
+    favoriteControllerUpdateFavorites: (
+      data: UpdateFavoritesDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateFavoriteResponse, any>({
+        path: `/api/favorites`,
         method: "POST",
         body: data,
         secure: true,
@@ -1336,6 +1481,30 @@ export class Sdk<
         body: data,
         secure: true,
         type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Retrieve a place by its name.
+     *
+     * @tags Place
+     * @name PlaceControllerGetPlaceByName
+     * @summary Get place by name
+     * @request GET:/api/place/by-name
+     * @secure
+     */
+    placeControllerGetPlaceByName: (
+      query: {
+        name: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<PlacesResponse, any>({
+        path: `/api/place/by-name`,
+        method: "GET",
+        query: query,
+        secure: true,
         format: "json",
         ...params,
       }),
@@ -1740,6 +1909,55 @@ export class Sdk<
     ) =>
       this.request<NearbyResponse, void>({
         path: `/api/map/nearby`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+  };
+  savedRoute = {
+    /**
+     * No description
+     *
+     * @tags Saved Route
+     * @name SavedRouteControllerCreateSavedRoute
+     * @summary Create a saved route (overwrite old one if exists)
+     * @request POST:/api/saved-route
+     * @secure
+     */
+    savedRouteControllerCreateSavedRoute: (
+      data: CreateSavedRouteDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateSavedRouteResponse, any>({
+        path: `/api/saved-route`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Saved Route
+     * @name SavedRouteControllerGetSavedRoutesByUserId
+     * @summary Get saved routes for a user
+     * @request GET:/api/saved-route/{userId}
+     * @secure
+     */
+    savedRouteControllerGetSavedRoutesByUserId: (
+      userId: string,
+      query: {
+        userId: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateSavedRouteResponse, any>({
+        path: `/api/saved-route/${userId}`,
         method: "GET",
         query: query,
         secure: true,

@@ -22,6 +22,7 @@ import {
 	userLocationIcon 
 } from "./MapMarkers";
 import { AMENITY_TAGS, getAmenityIcon } from "../../components/filters/TagFilters";
+import { MarkerPopupContent } from "./MarkerPopupContent";
 
 L.Icon.Default.mergeOptions({
 	iconUrl: "/leaflet/marker-icon.png",
@@ -68,30 +69,75 @@ const createSearchMarker = () => {
 	return createCustomMarker("#00d492"); // Amber color for search results
 };
 
-// Create POI marker with Material Symbol icon
-const createPOIMarkerIcon = (poiType: string) => {
-	console.log('[Map] Creating POI marker for type:', poiType);
+// Create star marker for favorites
+const createStarMarker = () => {
+	const cacheKey = 'star-marker';
+	const cachedMarker = markerCache.get(cacheKey);
+	if (cachedMarker) {
+		return cachedMarker;
+	}
+
+	// Star SVG icon in yellow/gold color
+	const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="#fbbf24"><path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"/></svg>`;
+	
+	const encodedSvg = svgString
+		.replace(/"/g, "'")
+		.replace(/</g, "%3C")
+		.replace(/>/g, "%3E")
+		.replace(/#/g, "%23")
+		.replace(/\s+/g, " ");
+	
+	const dataUrl = `data:image/svg+xml,${encodedSvg}`;
+	
+	const icon = new L.Icon({
+		iconUrl: dataUrl,
+		iconSize: [28, 28],
+		iconAnchor: [14, 28],
+		popupAnchor: [0, -28],
+	});
+	
+	// Cache the marker
+	markerCache.set(cacheKey, icon);
+	return icon;
+};
+
+// Create POI marker with Material Symbol icon - scales with zoom
+const createPOIMarkerIcon = (poiType: string, zoom: number = 14) => {
+	console.log('[Map] Creating POI marker for type:', poiType, 'at zoom:', zoom);
 	
 	// Use the helper function to get icon/color for any amenity type
 	const { icon: iconName, color } = getAmenityIcon(poiType);
 	console.log('[Map] Using icon:', iconName, 'color:', color);
 
+	// Calculate size based on zoom level (similar to Google Maps)
+	// Zoom 10: 12px, Zoom 14: 22px, Zoom 18: 32px - smaller for better visibility
+	const minZoom = 10;
+	const maxZoom = 18;
+	const minSize = 12;
+	const maxSize = 32;
+	
+	const clampedZoom = Math.max(minZoom, Math.min(maxZoom, zoom));
+	const scale = (clampedZoom - minZoom) / (maxZoom - minZoom);
+	const size = minSize + (maxSize - minSize) * scale;
+	const iconSize = size * 0.5; // Icon is half the marker size
+	const borderWidth = Math.max(1.5, size * 0.06);
+
 	const html = `
-		<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+		<div style="position: relative; width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center;">
 			<div style="
 				position: absolute;
-				width: 40px;
-				height: 40px;
+				width: ${size}px;
+				height: ${size}px;
 				background: ${color};
 				border-radius: 50% 50% 50% 0;
 				transform: rotate(-45deg);
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-				border: 3px solid white;
+				box-shadow: 0 ${size * 0.1}px ${size * 0.3}px rgba(0, 0, 0, 0.4);
+				border: ${borderWidth}px solid white;
 			"></div>
 			<span class="material-symbols-outlined" style="
 				position: relative;
 				color: white;
-				font-size: 20px;
+				font-size: ${iconSize}px;
 				z-index: 1;
 				text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 			">${iconName}</span>
@@ -101,9 +147,9 @@ const createPOIMarkerIcon = (poiType: string) => {
 	return L.divIcon({
 		html,
 		className: "poi-marker",
-		iconSize: [40, 40],
-		iconAnchor: [20, 40],
-		popupAnchor: [0, -40],
+		iconSize: [size, size],
+		iconAnchor: [size / 2, size],
+		popupAnchor: [0, -size],
 	});
 };
 
@@ -119,6 +165,29 @@ function MapCenterUpdater({
 			map.flyTo([center.lat, center.lng], 15, { duration: 1.5 });
 		}
 	}, [center, map]);
+	return null;
+}
+
+// Component to track zoom changes and update POI markers
+function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+	const map = useMap();
+
+	useEffect(() => {
+		const handleZoom = () => {
+			onZoomChange(map.getZoom());
+		};
+
+		// Set initial zoom
+		onZoomChange(map.getZoom());
+
+		// Listen to zoom events
+		map.on('zoomend', handleZoom);
+
+		return () => {
+			map.off('zoomend', handleZoom);
+		};
+	}, [map, onZoomChange]);
+
 	return null;
 }
 
@@ -226,6 +295,16 @@ function MapResizer() {
 			map.invalidateSize();
 		}, 100);
 	}, [map]);
+	return null;
+}
+
+function ClosePopupHandler({ shouldClose }: { shouldClose: boolean }) {
+	const map = useMap();
+	useEffect(() => {
+		if (shouldClose) {
+			map.closePopup();
+		}
+	}, [shouldClose, map]);
 	return null;
 }
 
@@ -348,6 +427,14 @@ interface LeafletMapProps {
 	onMapCenterChange?: (center: { lat: number; lng: number }) => void;
 	initialCenter?: [number, number];
 	onAddPlanFromMap?: (position: LatLng) => void;
+	onAddToFavorites?: (position: LatLng) => void;
+	favorites?: Array<{
+		id: string;
+		name: string;
+		address: string;
+		lat: number;
+		lng: number;
+	}>;
 	onUserLocationChange?: (location: LatLng) => void;
 	pathPoints?: LatLng[];
 }
@@ -359,9 +446,11 @@ export default function LeafletMap({
 	planCards = [],
 	searchResults = [],
 	pois = [],
+	favorites = [],
 	centerLocation,
 	initialCenter = [10.7725, 106.6980],
 	onAddPlanFromMap = () => {},
+	onAddToFavorites = () => {},
 	onUserLocationChange = () => {},
 	pathPoints = [],
 }: LeafletMapProps) {
@@ -375,15 +464,31 @@ export default function LeafletMap({
 		position: { x: number; y: number };
 		latLng: LatLng;
 	} | null>(null);
+	const [currentZoom, setCurrentZoom] = useState<number>(14);
+	const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+	const [closeAllPopups, setCloseAllPopups] = useState<boolean>(false);
 
 	useEffect(() => {
 		initDefaultMarker();
 	}, []);
 
+	useEffect(() => {
+		if (closeAllPopups) {
+			setCloseAllPopups(false);
+		}
+	}, [closeAllPopups]);
+
 	// Log POIs for debugging
 	useEffect(() => {
+		console.log('[Map] POIs prop updated, count:', pois.length);
 		if (pois.length > 0) {
-			console.log('[Map] Rendering', pois.length, 'POI markers:', pois.map(p => ({ id: p.id, name: p.name, type: p.type })));
+			console.log('[Map] Rendering', pois.length, 'POI markers:', pois.map(p => ({ 
+				id: p.id, 
+				name: p.name, 
+				type: p.type,
+				lat: p.lat,
+				lng: p.lng 
+			})));
 		}
 	}, [pois]);
 
@@ -403,6 +508,9 @@ export default function LeafletMap({
 
 	const handleContextMenu = useCallback((e: L.LeafletMouseEvent) => {
 		e.originalEvent.preventDefault();
+		// Close any open marker popups
+		setOpenPopupId(null);
+		setCloseAllPopups(true);
 		// Update context menu position directly (opens at new location or replaces existing)
 		setContextMenu({
 			position: { x: e.originalEvent.clientX, y: e.originalEvent.clientY },
@@ -418,6 +526,9 @@ export default function LeafletMap({
 	const handleAddToPlan = useCallback(
 		(position: LatLng) => {
 			onAddPlanFromMap(position);
+			// Close popup after adding to plan
+			setCloseAllPopups(true);
+			setOpenPopupId(null);
 		},
 		[onAddPlanFromMap],
 	);
@@ -453,64 +564,69 @@ export default function LeafletMap({
 					latLng={contextMenu.latLng}
 					onClose={handleCloseContextMenu}
 					onAddToPlan={handleAddToPlan}
-				/>
-			)}
+				onAddToFavorites={onAddToFavorites}
+			/>
+		)}
 
-			<MapContainer
-				center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
-				zoom={14}
-				scrollWheelZoom={true}
-				className="w-full h-full outline-none relative"
-				zoomControl={false}
-				attributionControl={false}
-			>
-				{/* Dark Mode Tiles */}
-				<TileLayer
-					url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-				/>
+		<MapContainer
+			center={(mapCenter ? [mapCenter.lat, mapCenter.lng] : initialCenter) as [number, number]}
+			zoom={14}
+			scrollWheelZoom={true}
+			className="w-full h-full outline-none relative"
+			zoomControl={false}
+			attributionControl={false}
+		>
+			{/* Light Mode Tiles */}
+			<TileLayer
+				url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+				attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+			/>
 
-				<MapResizer />
+			<ClosePopupHandler shouldClose={closeAllPopups} />
+			<MapResizer />
 			<MapCenterUpdater center={mapCenter} />
-			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />			<CursorTracker
+			<LocateUserOnLoad locationSetter={setUserLocation} onUserLocationChange={onUserLocationChange} />
+			<ZoomTracker onZoomChange={setCurrentZoom} />
+			<CursorTracker
 				isPickingCardLocation={isPickingCardLocation}
 				onCursorMove={handleCursorMove}
-			/>				<MarkerSetter
-					setDisplay={setHighlighted}
-					isPickingCardLocation={isPickingCardLocation}
-					onCardLocationPicked={handleCardLocationPicked}
-					onContextMenu={handleContextMenu}
-				/>
+			/>
+			<MarkerSetter
+				setDisplay={setHighlighted}
+				isPickingCardLocation={isPickingCardLocation}
+				onCardLocationPicked={handleCardLocationPicked}
+				onContextMenu={handleContextMenu}
+			/>
 
-				{/* Helper/Highlight Marker */}
-				<DisplayMarker displayed={isHighlighted} position={highlightPosition} />
+			{contextMenu && (
+				<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
+			)}
 
-				{/* Context Menu Marker - Shows when context menu is open */}
-				{contextMenu && (
-					<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
-				)}
-
-				{/* User Location */}
-				<Marker position={userLocation} icon={userLocationIcon}>
-				<Popup>
-					<div className="bg-[#1e1e1e] p-4 rounded-lg min-w-[200px]">
-						<h3 className="text-white font-bold text-lg mb-2">
-							📍 Your Location
-						</h3>
-						<p className="text-gray-400 text-xs mb-3">
-							You are currently here
-						</p>
-
-						<button
-							type="button"
-							onClick={() => onAddPlanFromMap(userLocation)}
-							className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
-						>
-							Add to Route
-						</button>
-			</div>
-		</Popup>
-	</Marker>
+			{/* User Location */}
+			<Marker 
+				position={userLocation} 
+				icon={userLocationIcon}
+				eventHandlers={{
+					popupopen: () => {
+						setContextMenu(null);
+						setOpenPopupId('user-location');
+					},
+						popupclose: () => {
+							if (openPopupId === 'user-location') {
+								setOpenPopupId(null);
+							}
+						}
+					}}
+				>
+					<Popup>
+						<MarkerPopupContent
+							title="📍 Your Location"
+							subtitle="You are currently here"
+							latLng={userLocation}
+							onAddToPlan={onAddPlanFromMap}
+						/>
+					</Popup>
+				</Marker>
 			{pathPoints.length > 0 && (
 					<Polyline
 						positions={pathPoints}
@@ -532,20 +648,26 @@ export default function LeafletMap({
 						icon={createSearchMarker()}
 						zIndexOffset={50}
 						pane="markerPane"
+						eventHandlers={{
+							popupopen: () => {
+								setContextMenu(null);
+								setOpenPopupId(`search-${result.place_id}`);
+							},
+							popupclose: () => {
+								if (openPopupId === `search-${result.place_id}`) {
+									setOpenPopupId(null);
+								}
+							}
+						}}
 					>
 						<Popup>
-							<div className="text-sm">
-								<p className="font-semibold text-gray-900">{result.display_name.split(",")[0]}</p>
-								<p className="text-xs text-gray-600 mt-1">{result.display_name.split(",").slice(1).join(",")}</p>
-								<p className="text-xs text-gray-500 mt-1 italic">{result.type}</p>
-								<button
-									type="button"
-									onClick={() => onAddPlanFromMap(new LatLng(result.lat, result.lng))}
-									className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
-								>
-									Add to Route
-								</button>
-							</div>
+							<MarkerPopupContent
+								title={result.display_name.split(",")[0]}
+								subtitle={result.display_name.split(",").slice(1).join(",")}
+								latLng={new LatLng(result.lat, result.lng)}
+								onAddToPlan={onAddPlanFromMap}
+								showType={result.type}
+							/>
 						</Popup>
 					</Marker>			))}
 
@@ -554,25 +676,53 @@ export default function LeafletMap({
 					<Marker
 						key={`poi-${poi.id}`}
 						position={[poi.lat, poi.lng]}
-					icon={createPOIMarkerIcon(poi.type)}
-					zIndexOffset={60}
-					pane="markerPane"
+						icon={createPOIMarkerIcon(poi.type, currentZoom)}
+						zIndexOffset={60}
+						pane="markerPane"
+						eventHandlers={{
+							popupopen: () => {
+								setContextMenu(null);
+								setOpenPopupId(`poi-${poi.id}`);
+							},
+							popupclose: () => {
+								if (openPopupId === `poi-${poi.id}`) {
+									setOpenPopupId(null);
+								}
+							}
+						}}
+					>
+						<Popup>
+							<MarkerPopupContent
+								title={poi.name}
+								subtitle={poi.address}
+								latLng={new LatLng(poi.lat, poi.lng)}
+								onAddToPlan={onAddPlanFromMap}
+								showType={poi.type}
+							/>
+						</Popup>
+					</Marker>
+			))}
+
+			{/* Favorite Markers with star icons */}
+			{favorites.length > 0 && favorites.map((favorite) => (
+				<Marker
+					key={`favorite-${favorite.id}`}
+					position={new LatLng(favorite.lat, favorite.lng)}
+					icon={createStarMarker()}
+					zIndexOffset={100}
+					eventHandlers={{
+						popupopen: () => {
+							setContextMenu(null);
+						},
+					}}
 				>
 					<Popup>
-						<div className="text-sm">
-							<p className="font-semibold text-gray-900">{poi.name}</p>
-							{poi.address && (
-								<p className="text-xs text-gray-600 mt-1">{poi.address}</p>
-							)}
-							<p className="text-xs text-emerald-600 mt-1 font-medium capitalize">{poi.type.replace(/_/g, ' ')}</p>
-							<button
-								type="button"
-								onClick={() => onAddPlanFromMap(new LatLng(poi.lat, poi.lng))}
-								className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-1.5 px-3 rounded transition mt-2"
-							>
-								Add to Route
-							</button>
-						</div>
+						<MarkerPopupContent
+							title={favorite.name}
+							subtitle={favorite.address}
+							latLng={new LatLng(favorite.lat, favorite.lng)}
+							onAddToPlan={onAddPlanFromMap}
+						/>
 					</Popup>
 				</Marker>
 			))}
@@ -586,21 +736,25 @@ export default function LeafletMap({
 							position={card.position}
 							icon={createCustomMarker(card.color)}
 							zIndexOffset={100}
+							eventHandlers={{
+								popupopen: () => {
+									setContextMenu(null);
+									setOpenPopupId(card.id);
+								},
+								popupclose: () => {
+									if (openPopupId === card.id) {
+										setOpenPopupId(null);
+									}
+								}
+							}}
 						>
 							<Popup>
-								<div className="text-sm">
-									<p className="font-semibold text-gray-900">{card.title}</p>
-									<p className="text-gray-400 text-xs mb-3 line-clamp-2">
-										{card.description}
-									</p>
-									<button
-										type="button"
-										onClick={() => onAddPlanFromMap(card.position!)}
-										className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 px-3 rounded-lg font-medium transition"
-									>
-										Add to Route
-									</button>
-								</div>
+								<MarkerPopupContent
+									title={card.title}
+									subtitle={card.description}
+									latLng={card.position}
+									onAddToPlan={onAddPlanFromMap}
+								/>
 							</Popup>
 						</Marker>
 					),

@@ -1,10 +1,10 @@
 "use client";
 
-import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import type { LatLng } from "leaflet";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FaCloudSun, FaExpand, FaMapMarkerAlt, FaSpinner, FaTimes } from "react-icons/fa";
 import { WiHumidity, WiStrongWind, WiThermometer } from "react-icons/wi";
+import { fetchAddress } from "./MapContextMenu";
 
 interface DailyForecast {
 	dt: number;
@@ -30,48 +30,19 @@ interface WeatherData {
 	daily?: DailyForecast[];
 }
 
-interface MapContextMenuProps {
-	position: { x: number; y: number };
+interface MarkerPopupContentProps {
+	title: string;
+	subtitle?: string;
 	latLng: LatLng;
-	onClose: () => void;
 	onAddToPlan: (position: LatLng) => void;
-	onAddToFavorites?: (position: LatLng) => void;
+	showType?: string;
+	onClose?: () => void;
 }
 
-// Separate function to fetch address from coordinates
-export async function fetchAddress(lat: number, lng: number): Promise<string> {
-	try {
-		const api = new Sdk({
-			baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
-			securityWorker: async () => ({
-				headers: {
-					Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
-				},
-			}),
-		});
-
-		const response = await api.map.mapControllerGetLocationDetail({ lat, lng });
-		console.log(response.data);
-		return response.data.data?.address || "Unknown address";
-	} catch (err) {
-		console.error("Address fetch error:", err);
-		return "Unknown address";
-	}
-}
-
-// Separate function to fetch weather data
-// ============================================================================
-// TODO: Replace mock data with actual OpenWeatherMap One Call API 3.0
-// API endpoint: https://api.openweathermap.org/data/3.0/onecall
-// Requires: lat, lon, appid, units=metric
-// ============================================================================
 async function fetchWeather(lat: number, lng: number): Promise<WeatherData | null> {
 	try {
 		const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 		
-		// ============================================================================
-		// MOCK DATA - Replace this entire block with actual API call when ready
-		// ============================================================================
 		if (!API_KEY) {
 			console.warn("Weather API key not configured, using mock data");
 			
@@ -174,32 +145,6 @@ async function fetchWeather(lat: number, lng: number): Promise<WeatherData | nul
 				})),
 			};
 		}
-		// ============================================================================
-		// END MOCK DATA
-		// ============================================================================
-
-		// ============================================================================
-		// TODO: Uncomment and use this for production with actual API key
-		// ============================================================================
-		// const response = await fetch(
-		// 	`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&appid=${API_KEY}&units=metric&exclude=minutely,hourly,daily,alerts`
-		// );
-		//
-		// if (!response.ok) {
-		// 	throw new Error("Failed to fetch weather data");
-		// }
-		//
-		// const data = await response.json();
-		// return {
-		// 	temp: Math.round(data.current.temp),
-		// 	feels_like: Math.round(data.current.feels_like),
-		// 	humidity: data.current.humidity,
-		// 	description: data.current.weather[0].description,
-		// 	icon: data.current.weather[0].icon,
-		// 	wind_speed: data.current.wind_speed,
-		// 	location_name: data.timezone || "Unknown",
-		// };
-		// ============================================================================
 
 		// Fallback for legacy API (current weather endpoint)
 		const response = await fetch(
@@ -226,13 +171,14 @@ async function fetchWeather(lat: number, lng: number): Promise<WeatherData | nul
 	}
 }
 
-export function MapContextMenu({
-	position,
+export function MarkerPopupContent({
+	title,
+	subtitle,
 	latLng,
-	onClose,
 	onAddToPlan,
-	onAddToFavorites,
-}: MapContextMenuProps) {
+	showType,
+	onClose,
+}: MarkerPopupContentProps) {
 	const [weather, setWeather] = useState<WeatherData | null>(null);
 	const [address, setAddress] = useState<string>("");
 	const [isLoadingWeather, setIsLoadingWeather] = useState(true);
@@ -241,7 +187,6 @@ export function MapContextMenu({
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [selectedDay, setSelectedDay] = useState(0);
 	const menuRef = useRef<HTMLDivElement>(null);
-	const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
 
 	// Fetch both address and weather when latLng changes
 	useEffect(() => {
@@ -270,144 +215,68 @@ export function MapContextMenu({
 		loadData();
 	}, [latLng]);
 
-	// Adjust position based on actual menu dimensions
-	useLayoutEffect(() => {
-		if (!menuRef.current) return;
-		
-		const menuWidth = menuRef.current.offsetWidth;
-		const menuHeight = menuRef.current.offsetHeight;
-		
-		let adjustedX = position.x;
-		let adjustedY = position.y;
-		
-		// Check horizontal overflow
-		if (position.x + menuWidth > window.innerWidth) {
-			// Menu would overflow right edge, position to the left of cursor
-			adjustedX = position.x - menuWidth;
-		}
-		
-		// Check vertical overflow
-		if (position.y + menuHeight > window.innerHeight) {
-			// Menu would overflow bottom edge, position above cursor
-			adjustedY = position.y - menuHeight;
-		}
-		
-		// Ensure menu doesn't go off left edge
-		if (adjustedX < 0) {
-			adjustedX = 10; // Small margin from edge
-		}
-		
-		// Ensure menu doesn't go off top edge
-		if (adjustedY < 0) {
-			adjustedY = 10; // Small margin from edge
-		}
-		
-		setAdjustedPosition({ x: adjustedX, y: adjustedY });
-	}, [position, weather, isExpanded]); // Re-calculate when position changes, weather loads, or expansion state changes
-	
-	const adjustedStyle: React.CSSProperties = {
-		position: "fixed",
-		left: adjustedPosition.x,
-		top: adjustedPosition.y,
-		zIndex: 2000,
-	};
-
 	return (
-		<>
-			{/* Backdrop to close menu */}
-			<div
-				className="fixed inset-0 z-[1999]"
-				onClick={onClose}
-				onContextMenu={(e) => {
-					e.preventDefault();
-					onClose();
-				}}
-			/>
-
-			{/* Context Menu */}
-			<div
-				ref={menuRef}
-				style={adjustedStyle}
-				className={`bg-[#1e1e1e]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden transition-all duration-300 ${
-			isExpanded ? 'w-[600px]' : 'w-[280px]'
-				}`}
-				onClick={(e) => e.stopPropagation()}
-			>
-				{/* Header */}
-				<div className="p-3 border-b border-white/5 flex justify-between items-center">
-					<h3 className="text-sm font-bold text-white flex items-center gap-2">
-						<FaMapMarkerAlt className="text-emerald-500" />
-						Menu
-					</h3>
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => setIsExpanded(!isExpanded)}
-							className="text-gray-400 hover:text-white transition"
-							title={isExpanded ? "Collapse" : "Expand"}
-						>
-							<FaExpand size={14} />
-						</button>
+		<div
+			ref={menuRef}
+			className={`bg-[#1e1e1e]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden transition-all duration-300 w-80			}`}
+		>
+			{/* Header */}
+			<div className="p-2 border-b border-white/5 flex justify-between items-center">
+				<h3 className="text-sm font-bold text-white flex items-center gap-2">
+					<FaMapMarkerAlt className="text-emerald-500" />
+					{title}
+				</h3>
+				<div className="flex items-center gap-0 ">
+					{onClose && (
 						<button
 							type="button"
 							onClick={onClose}
-							className="text-gray-400 hover:text-white transition"
+							className="text-gray-400 hover:text-white transition p-1"
 						>
 							<FaTimes size={14} />
 						</button>
-					</div>
+					)}
 				</div>
+			</div>
 
-				{/* Coordinates */}
-				<div className="px-3 py-2 bg-white/5 border-b border-white/5">
-				{isLoadingAddress ? (
-					<div className="flex items-center gap-2">
-						<FaSpinner className="animate-spin text-emerald-500" size={12} />
-						<p className="text-xs text-gray-400">Loading address...</p>
-					</div>
-				) : (
-					<>
-						{address && (
-							<p className={`text-xs text-white font-medium ${!isExpanded ? 'truncate' : ''}`}>
-								{address}
-							</p>
-						)}
-					</>
-				)}
+			{subtitle && (
+				<div className="px-2 py-1 bg-white/5 border-b border-white/5">
+					<p className="text-xs text-gray-400 truncate">{subtitle}</p>
 				</div>
+			)}
 
-				{/* Weather Section */}
-				<div className="p-3 border-b border-white/5">
-					<div className="flex items-center gap-2 mb-2">
-						<FaCloudSun className="text-blue-400" />
-						<h4 className="text-sm font-semibold text-white">Weather</h4>
-					</div>
+			{/* Weather Section */}
+			{/* <div className="px-2 py-1.5 border-b border-white/5">
+				<div className="flex items-center gap-2 mb-1">
+					<FaCloudSun className="text-blue-400" />
+					<h4 className="text-sm font-semibold text-white">Weather</h4>
+				</div>
 
 				{isLoadingWeather && (
-					<div className="flex items-center justify-center py-4">
+					<div className="flex items-center justify-center py-2">
 						<FaSpinner className="animate-spin text-emerald-500" size={20} />
 					</div>
 				)}
 
 				{error && (
-					<div className="text-xs text-red-400 py-2">{error}</div>
+					<div className="text-xs text-red-400 py-1">{error}</div>
 				)}
 
 				{weather && !isLoadingWeather && !error && (
 					<>
 						{!isExpanded ? (
 							// Collapsed View: Only temperature and icon
-							<div className="flex items-center gap-3">
+							<div className="flex items-center gap-1">
 								<img
 									src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
 									alt={weather.description}
-									className="w-12 h-12"
+									className="w-10 h-10"
 								/>
 								<div className="flex-1">
-									<p className="text-2xl font-bold text-white">
+									<p className="text-xl font-bold text-white leading-none">
 										{weather.temp}°C
 									</p>
-									<p className="text-xs text-gray-400 capitalize">
+									<p className="text-xs text-gray-400 capitalize leading-tight mt-0.5">
 										{weather.description}
 									</p>
 								</div>
@@ -415,10 +284,10 @@ export function MapContextMenu({
 						) : (
 							// Expanded View: Two-column layout with forecast list and detail panel
 							<div className="flex gap-3">
-								{/* Left Column: 7-Day Forecast List */}
-								<div className="flex-shrink-0 w-[180px]">
-									<h5 className="text-xs font-semibold text-gray-300 mb-2">7-Day Forecast</h5>
-									<div className="space-y-1">
+								{/* Left Column: 7-Day Forecast List *
+								<div className="shrink-0 w-[180px]">
+									<h5 className="text-xs font-semibold text-gray-300 mb-1.5">7-Day Forecast</h5>
+									<div className="space-y-0.5">
 										{weather.daily && weather.daily.map((day, index) => {
 											const date = new Date(day.dt * 1000);
 											const dayName = index === 0 ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' });
@@ -430,7 +299,7 @@ export function MapContextMenu({
 													key={index}
 													type="button"
 													onClick={() => setSelectedDay(index)}
-													className={`w-full flex items-center justify-between rounded-lg p-2 transition-all ${
+													className={`w-full flex items-center justify-between rounded-lg p-1.5 transition-all ${
 														isSelected 
 															? 'bg-emerald-500/20 border border-emerald-500/40' 
 															: 'bg-white/5 hover:bg-white/10'
@@ -461,13 +330,13 @@ export function MapContextMenu({
 									</div>
 								</div>
 
-								{/* Right Column: Selected Day Details */}
+								{/* Right Column: Selected Day Details *}
 								{weather.daily && weather.daily[selectedDay] && (
 									<div className="flex-1">
-										<h5 className="text-xs font-semibold text-gray-300 mb-2">Detailed Forecast</h5>
-										<div className="space-y-3">
-											{/* Main Weather Display */}
-											<div className="bg-white/5 rounded-lg p-3">
+										<h5 className="text-xs font-semibold text-gray-300 mb-1.5">Detailed Forecast</h5>
+										<div className="space-y-2">
+											{/* Main Weather Display *}
+											<div className="bg-white/5 rounded-lg p-2">
 												<div className="flex items-start gap-3">
 													<img
 														src={`https://openweathermap.org/img/wn/${weather.daily[selectedDay].icon}@2x.png`}
@@ -478,7 +347,7 @@ export function MapContextMenu({
 														<p className="text-3xl font-bold text-white mb-1">
 															{weather.daily[selectedDay].temp_day}°C
 														</p>
-														<p className="text-xs text-gray-400 capitalize mb-2">
+														<p className="text-xs text-gray-400 capitalize mb-1">
 															{weather.daily[selectedDay].description}
 														</p>
 														<div className="flex items-center gap-3 text-xs">
@@ -489,41 +358,41 @@ export function MapContextMenu({
 												</div>
 											</div>
 
-											{/* Weather Details Grid */}
-											<div className="grid grid-cols-2 gap-2">
-												<div className="bg-white/5 rounded-lg p-2.5">
-													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1.5">
-														<WiThermometer size={18} />
+											{/* Weather Details Grid *}
+											<div className="grid grid-cols-2 gap-1.5">
+												<div className="bg-white/5 rounded-lg p-1.5">
+													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+														<WiThermometer size={16} />
 														<span>Feels Like</span>
 													</div>
-													<p className="text-lg font-semibold text-white">
+													<p className="text-base font-semibold text-white">
 														{weather.daily[selectedDay].feels_like}°C
 													</p>
 												</div>
-												<div className="bg-white/5 rounded-lg p-2.5">
-													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1.5">
-														<WiHumidity size={18} />
+												<div className="bg-white/5 rounded-lg p-1.5">
+													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+														<WiHumidity size={16} />
 														<span>Humidity</span>
 													</div>
-													<p className="text-lg font-semibold text-white">
+													<p className="text-base font-semibold text-white">
 														{weather.daily[selectedDay].humidity}%
 													</p>
 												</div>
-												<div className="bg-white/5 rounded-lg p-2.5">
-													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1.5">
-														<WiStrongWind size={18} />
+												<div className="bg-white/5 rounded-lg p-1.5">
+													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+														<WiStrongWind size={16} />
 														<span>Wind Speed</span>
 													</div>
-													<p className="text-lg font-semibold text-white">
+													<p className="text-base font-semibold text-white">
 														{weather.daily[selectedDay].wind_speed} m/s
 													</p>
 												</div>
-												<div className="bg-white/5 rounded-lg p-2.5">
-													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1.5">
-														<FaCloudSun size={14} className="text-yellow-400" />
+												<div className="bg-white/5 rounded-lg p-1.5">
+													<div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+														<FaCloudSun size={12} className="text-yellow-400" />
 														<span>UV Index</span>
 													</div>
-													<p className="text-lg font-semibold text-white">
+													<p className="text-base font-semibold text-white">
 														{weather.daily[selectedDay].uv_index}
 													</p>
 												</div>
@@ -535,35 +404,24 @@ export function MapContextMenu({
 						)}
 					</>
 				)}
-				</div>
+			</div> */}
 
-				{/* Actions */}
-				<div className="p-2 space-y-2">
-					<button
-						type="button"
-						onClick={() => {
-							onAddToPlan(latLng);
+			{/* Actions */}
+			<div className="p-1.5">
+				<button
+					type="button"
+					onClick={() => {
+						onAddToPlan(latLng);
+						if (onClose) {
 							onClose();
-						}}
-						className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-3 rounded-lg text-sm transition flex items-center justify-center gap-2"
-					>
-						<FaMapMarkerAlt size={14} />
-						Add to Current Route
-					</button>
-					{onAddToFavorites && (
-						<button
-							type="button"
-							onClick={() => {
-								onAddToFavorites(latLng);
-								onClose();
-							}}
-							className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 rounded-lg text-sm transition flex items-center justify-center gap-2"
-						>
-							⭐ Add to Favorites
-						</button>
-					)}
-				</div>
+						}
+					}}
+					className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-1.5 px-3 rounded-lg text-sm transition flex items-center justify-center gap-2"
+				>
+					<FaMapMarkerAlt size={14} />
+					Add to Current Route
+				</button>
 			</div>
-		</>
+		</div>
 	);
 }

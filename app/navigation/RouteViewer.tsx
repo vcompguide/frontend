@@ -1,3 +1,5 @@
+import React from "react";
+import { Sdk } from "@/src/backend/RESTful/BackendRESTfulSDK";
 import {
   closestCenter,
   DndContext,
@@ -46,8 +48,8 @@ export interface PlannerCard {
   color: string;
   tags: string[];
   position?: LatLng;
-  finished?: boolean;
-  createdAt?: number; // Internal creation time
+  finished: boolean;
+  startTime: number;
 }
 
 interface RouteViewerProps {
@@ -82,6 +84,8 @@ export function RouteViewer({
   const [cards, setCards] = useState<PlannerCard[]>(initialCards);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [showClearWarning, setShowClearWarning] = useState(false);
+  const [cardHeights, setCardHeights] = useState<{ [key: string]: number }>({});
+  const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     setCards(initialCards);
@@ -92,6 +96,27 @@ export function RouteViewer({
       onClearPath?.();
     }
   }, [initialCards, onClearPath]);
+
+  // Measure card heights whenever cards or their content changes
+  useEffect(() => {
+    const measureHeights = () => {
+      const heights: { [key: string]: number } = {};
+      cards.forEach((card) => {
+        const element = cardRefs.current[card.id];
+        if (element) {
+          heights[card.id] = element.offsetHeight;
+        }
+      });
+      setCardHeights(heights);
+    };
+
+    // Measure immediately
+    measureHeights();
+
+    // Also measure after a short delay to catch any async rendering
+    const timer = setTimeout(measureHeights, 100);
+    return () => clearTimeout(timer);
+  }, [cards]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -239,29 +264,35 @@ export function RouteViewer({
                   // Calculate the number of cards between previous located and current
                   const cardsBetween = prevLocatedIndex >= 0 ? index - prevLocatedIndex - 1 : 0;
 
-                  // Estimate heights: 
-                  // - Card with weather: ~180px
-                  // - Card without weather: ~80px
-                  // - Non-located card: ~80px
-                  const estimateCardHeight = (c: PlannerCard) => {
-                    return c.position ? 180 : 80;
-                  };
-
                   // Calculate total height from previous located card's center to current card's center
                   let totalHeight = 0;
                   if (prevLocatedIndex >= 0) {
-                    // Full height of cards in between
+                    // Full height of cards in between (including gaps)
                     for (let i = prevLocatedIndex + 1; i < index; i++) {
-                      totalHeight += estimateCardHeight(cards[i]);
+                      const height = cardHeights[cards[i].id] || 80;
+                      totalHeight += height;
+                      // Add gap spacing (space-y-3 = 0.75rem = 12px)
+                      totalHeight += 12;
                     }
 
-
                     // Half of previous card (from its center to its bottom)
-                    totalHeight += estimateCardHeight(cards[prevLocatedIndex]) / 2;
+                    const prevHeight = cardHeights[cards[prevLocatedIndex].id] || 80;
+                    totalHeight += prevHeight / 2;
+                    
+                    // Add gap after previous card
+                    totalHeight += 12;
+                    
+                    // Add half of current card (from its top to its center)
+                    const currentHeight = cardHeights[card.id] || 80;
+                    totalHeight += currentHeight / 2;
                   }
 
                   return (
-                    <div key={card.id} className="relative">
+                    <div 
+                      key={card.id} 
+                      className="relative"
+                      ref={(el) => { cardRefs.current[card.id] = el; }}
+                    >
                       {/* Distance indicator between consecutive located cards - skip for first located plan */}
                       {prevLocatedIndex >= 0 && card.position && !isFirstLocatedPlan && (
                         <div
@@ -331,6 +362,16 @@ export function RouteViewer({
                               }
                             }}
                             onEdit={() => setEditingCardId(card.id)}
+                            onHeightChange={() => {
+                              // Trigger remeasurement when card height changes
+                              const element = cardRefs.current[card.id];
+                              if (element) {
+                                setCardHeights(prev => ({
+                                  ...prev,
+                                  [card.id]: element.offsetHeight
+                                }));
+                              }
+                            }}
                             onToggleFinished={() => {
                               const updated = cards.map((c) =>
                                 c.id === card.id ? { ...c, finished: !c.finished } : c,
@@ -439,17 +480,19 @@ export function RouteViewer({
   );
 }
 
-function SortableCard({
-  card,
-  onRemove,
-  onEdit,
-  onToggleFinished,
-}: {
+const SortableCard = React.forwardRef<HTMLDivElement, {
   card: PlannerCard;
   onRemove: (id: string) => void;
   onEdit: (card: PlannerCard) => void;
   onToggleFinished: () => void;
-}) {
+  onHeightChange?: () => void;
+}>(function SortableCard({
+  card,
+  onRemove,
+  onEdit,
+  onToggleFinished,
+  onHeightChange,
+}, ref) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -460,8 +503,17 @@ function SortableCard({
     onToggleFinished();
   };
 
+  const handleDescriptionToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDescription(!showDescription);
+    // Trigger height remeasurement after state update
+    setTimeout(() => {
+      onHeightChange?.();
+    }, 0);
+  };
+
   return (
-    <div className={`transition-all ${card.finished ? "brightness-60" : ""}`}>
+    <div ref={ref} className={`transition-all ${card.finished ? "brightness-60" : ""}`}>
       <div
         ref={setNodeRef}
         {...attributes}
@@ -483,10 +535,7 @@ function SortableCard({
             {card.description && (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDescription(!showDescription);
-                }}
+                onClick={handleDescriptionToggle}
                 className="text-gray-400 hover:text-white transition"
                 title={showDescription ? "Hide description" : "Show description"}
               >
@@ -554,11 +603,12 @@ function SortableCard({
           position={card.position}
           cardColor={card.color}
           planName={card.title}
+          onHeightChange={onHeightChange}
         />
       )}
     </div>
   );
-}
+});
 
 function EditModal({
   card,
@@ -934,10 +984,12 @@ function WeatherDisplay({
   position,
   cardColor,
   planName,
+  onHeightChange,
 }: {
   position: LatLng;
   cardColor: string;
   planName: string;
+  onHeightChange?: () => void;
 }) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -966,23 +1018,31 @@ function WeatherDisplay({
         return;
       }
 
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${position.lat}&lon=${position.lng}&appid=${API_KEY}&units=metric`,
-      );
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+          },
+        }),
+      });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch weather data");
-      }
-
-      const data = await response.json();
+      const response = await api.weather.weatherControllerGetCurrentWeather({
+        latitude: position.lat,
+        longitude: position.lng,
+        locationName: planName,
+      });
+      
+      const data = response.data;
+      console.log("Fetched weather data:", data);
       setWeather({
-        temp: Math.round(data.main.temp),
-        feels_like: Math.round(data.main.feels_like),
-        humidity: data.main.humidity,
-        description: data.weather[0].description,
-        icon: data.weather[0].icon,
-        wind_speed: data.wind.speed,
-        location_name: data.name,
+        temp: Math.round(data.current.temperature),
+        feels_like: Math.round(data.current.feelsLike),
+        humidity: data.current.humidity,
+        description: data.current.description,
+        icon: data.current.icon,
+        wind_speed: data.current.windSpeed,
+        location_name: data.location.name,
       });
     } catch (err) {
       console.error("Weather fetch error:", err);
@@ -1009,7 +1069,13 @@ function WeatherDisplay({
       <div className={`flex items-center justify-between ${isCollapsed ? "-mb-2" : "mb-1"}`}>
         <button
           type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => {
+            setIsCollapsed(!isCollapsed);
+            // Trigger height recalculation after state updates
+            if (onHeightChange) {
+              setTimeout(() => onHeightChange(), 0);
+            }
+          }}
           className="flex items-center gap-1 text-xs font-semibold hover:opacity-70 transition"
           style={{ color: cardColor }}
         >
@@ -1129,17 +1195,25 @@ function LocationPickerMap({
     if (!searchQuery.trim()) return;
 
     try {
-      // Using Nominatim (OpenStreetMap) geocoding API
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1`,
-      );
-      const results = await response.json();
+      const api = new Sdk({
+        baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
+        securityWorker: async () => ({
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY}`,
+          },
+        }),
+      });
 
-      if (results.length > 0) {
-        const { lat, lon } = results[0];
+      const response = await api.map.mapControllerSearchPlace({
+        q: searchQuery,
+        limit: 1,
+      });
+
+      if (response.data.data.length > 0) {
+        const result = response.data.data[0];
         const position = new (require("leaflet").LatLng)(
-          parseFloat(lat),
-          parseFloat(lon),
+          result.lat,
+          result.lng,
         );
         handleLocationClick(position);
       }

@@ -13,7 +13,6 @@ interface DashboardProps {
 		color: string;
 		tags: string[];
 		finished?: boolean;
-		createdAt?: number;
 	}>;
 	savedRoutes?: Array<{
 		id: string;
@@ -27,7 +26,6 @@ interface DashboardProps {
 			position?: { lat: number; lng: number };
 		}>;
 		color: string;
-		createdAt: string;
 	}>;
 	onNavigate?: (tab: string) => void;
 }
@@ -150,12 +148,6 @@ export function DashboardScreen({
 						<div className="space-y-3">
 							{planCards.length > 0 ? (
 								planCards
-									.sort((a, b) => {
-										// Sort by creation time, most recent first (closest to current time)
-										const aTime = a.createdAt || 0;
-										const bTime = b.createdAt || 0;
-										return bTime - aTime;
-									})
 									.slice(0, 5)
 									.map((card) => (
 										<div
@@ -177,14 +169,7 @@ export function DashboardScreen({
 														{card.position.lng.toFixed(2)}
 													</p>
 												)}
-
 											</div>
-											<span className="text-gray-400 text-xs whitespace-nowrap">
-												{card.createdAt 
-													? new Date(card.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-													: 'Today'
-												}
-											</span>
 										</div>
 									))
 							) : (

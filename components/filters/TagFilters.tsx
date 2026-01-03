@@ -9,6 +9,48 @@ export interface AmenityTag {
 
 export const AMENITY_TAGS: AmenityTag[] = [
 	{
+		id: "museum",
+		label: "Museum",
+		icon: "museum",
+		color: "#8b5cf6",
+	},
+	{
+		id: "history",
+		label: "History",
+		icon: "history_edu",
+		color: "#a855f7",
+	},
+	{
+		id: "park",
+		label: "Park",
+		icon: "park",
+		color: "#22c55e",
+	},
+	{
+		id: "nature",
+		label: "Nature",
+		icon: "forest",
+		color: "#16a34a",
+	},
+	{
+		id: "landmark",
+		label: "Landmark",
+		icon: "location_city",
+		color: "#f59e0b",
+	},
+	{
+		id: "tourism",
+		label: "Tourism",
+		icon: "tour",
+		color: "#06b6d4",
+	},
+	{
+		id: "zoo",
+		label: "Zoo",
+		icon: "pets",
+		color: "#f97316",
+	},
+	{
 		id: "hotel",
 		label: "Hotel",
 		icon: "hotel",
@@ -84,11 +126,21 @@ export const AMENITY_TAGS: AmenityTag[] = [
 
 // Map backend amenity types to our tag IDs (handles variations and additional types)
 export const AMENITY_TYPE_MAP: Record<string, string> = {
+	// City-wide POI tags
+	museum: "museum",
+	history: "history",
+	park: "park",
+	nature: "nature",
+	landmark: "landmark",
+	tourism: "tourism",
+	zoo: "zoo",
+	
 	// Accommodation
 	hotel: "hotel",
 	motel: "hotel",
 	hostel: "hotel",
 	guesthouse: "hotel",
+	lodging: "hotel",
 	
 	// Food & Drink
 	restaurant: "restaurant",
@@ -192,7 +244,7 @@ export function TagFilter({ tag, isSelected, onToggle }: TagFilterProps) {
 			}}
 		>
 			<span
-				className="material-symbols-outlined text-xl"
+				className="material-symbols-outlined text-[25px]"
 				style={{ color: tag.color }}
 			>
 				{tag.icon}

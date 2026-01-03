@@ -9,9 +9,8 @@ export interface Plan {
   description: string;
   location?: [number, number];
   color: string;
-  finished?: boolean;
-  startTime?: number; // Timestamp for planned start time
-  createdAt?: number; // Internal creation time
+  finished: boolean;
+  startTime: number;
 }
 export interface SavedRoute {
   id: string;
@@ -20,7 +19,6 @@ export interface SavedRoute {
   duration: string;
   waypointsList: Plan[];
   color: string;
-  createdAt: string;
 }
 
 interface SavedRoutesScreenProps {
@@ -49,7 +47,6 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
       duration: "0 min",
       waypointsList: [],
       color: COLOR_OPTIONS[colorIndex],
-      createdAt: new Date().toLocaleDateString(),
     };
     const updated = [...routes, route];
     setRoutes(updated);
@@ -65,7 +62,7 @@ export function SavedRoutesScreen({ initialRoutes = [], onRoutesChange, onImport
     // setEditingRouteId(null);
   };
 
-  const stopEditingRoute = (event) => {
+  const stopEditingRoute = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter')
       setEditingRouteId(null);
   }
