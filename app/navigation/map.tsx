@@ -602,15 +602,16 @@ export default function LeafletMap({
 				<Marker position={contextMenu.latLng} icon={highlightMarkerIcon} />
 			)}
 
-			{/* User Location */}
-			<Marker 
-				position={userLocation} 
-				icon={userLocationIcon}
-				eventHandlers={{
-					popupopen: () => {
-						setContextMenu(null);
-						setOpenPopupId('user-location');
-					},
+			{/* User Location - only render when valid location is found */}
+			{userLocation && userLocation.lat !== 0 && userLocation.lng !== 0 && (
+				<Marker 
+					position={userLocation} 
+					icon={userLocationIcon}
+					eventHandlers={{
+						popupopen: () => {
+							setContextMenu(null);
+							setOpenPopupId('user-location');
+						},
 						popupclose: () => {
 							if (openPopupId === 'user-location') {
 								setOpenPopupId(null);
@@ -627,18 +628,25 @@ export default function LeafletMap({
 						/>
 					</Popup>
 				</Marker>
-			{pathPoints.length > 0 && (
-					<Polyline
-						positions={pathPoints}
-						pathOptions={{
-							color: "#FFD700",
-							weight: 5,
-							opacity: 0.8,
-							lineJoin: "round",
-							lineCap: "round",
-						}}
-					/>
-				)}
+			)}
+			{pathPoints.length > 0 && (() => {
+					// Filter out any invalid LatLng objects
+					const validPathPoints = pathPoints.filter(
+						(point) => point && typeof point.lat === 'number' && typeof point.lng === 'number' && !Number.isNaN(point.lat) && !Number.isNaN(point.lng)
+					);
+					return validPathPoints.length > 1 ? (
+						<Polyline
+							positions={validPathPoints}
+							pathOptions={{
+								color: "#FFD700",
+								weight: 5,
+								opacity: 0.8,
+								lineJoin: "round",
+								lineCap: "round",
+							}}
+						/>
+					) : null;
+				})()}
 
 				{/* Search Result Markers - Render first to appear below plan markers */}
 				{searchResults.length > 0 && searchResults.map((result) => (
@@ -704,10 +712,17 @@ export default function LeafletMap({
 			))}
 
 			{/* Favorite Markers with star icons */}
-			{favorites.length > 0 && favorites.map((favorite) => (
+			{favorites.length > 0 && favorites
+				.filter((favorite) => 
+					typeof favorite.lat === 'number' && 
+					typeof favorite.lng === 'number' && 
+					!Number.isNaN(favorite.lat) && 
+					!Number.isNaN(favorite.lng)
+				)
+				.map((favorite) => (
 				<Marker
 					key={`favorite-${favorite.id}`}
-					position={new LatLng(favorite.lat, favorite.lng)}
+					position={[favorite.lat, favorite.lng]}
 					icon={createStarMarker()}
 					zIndexOffset={100}
 					eventHandlers={{

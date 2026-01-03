@@ -88,9 +88,11 @@ export function FavoritesScreen({
 									<p className="text-sm text-gray-400 truncate">
 										{favorite.address}
 									</p>
-									<p className="text-xs text-gray-500 mt-1">
-										{favorite.lat.toFixed(6)}, {favorite.lng.toFixed(6)}
-									</p>
+									{typeof favorite.lat === 'number' && typeof favorite.lng === 'number' && (
+										<p className="text-xs text-gray-500 mt-1">
+											{favorite.lat.toFixed(6)}, {favorite.lng.toFixed(6)}
+										</p>
+									)}
 								</div>
 								<div className="flex gap-2">
 									<button

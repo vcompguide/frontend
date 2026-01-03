@@ -272,7 +272,7 @@ export function MapContextMenu({
 
 	// Adjust position based on actual menu dimensions
 	useLayoutEffect(() => {
-		if (!menuRef.current) return;
+		if (!menuRef.current || typeof window === 'undefined') return;
 		
 		const menuWidth = menuRef.current.offsetWidth;
 		const menuHeight = menuRef.current.offsetHeight;

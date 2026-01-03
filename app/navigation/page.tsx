@@ -196,19 +196,25 @@ function NavigationContent() {
   // Load favorites from backend on mount
   useEffect(() => {
     const loadFavorites = async () => {
+      console.log('[Favorites] Starting load...');
+      console.log('[Favorites] User state:', user ? 'logged in' : 'not logged in');
+      
       if (!user) {
-        console.log('Load favorites: No user logged in');
+        console.log('[Favorites] No user logged in, skipping load');
         return;
       }
       
       const userId = process.env.NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY;
+      console.log('[Favorites] Auth key configured:', userId ? 'yes' : 'no');
+      
       if (!userId) {
-        console.log('Load favorites: NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY not configured');
+        console.log('[Favorites] NEXT_PUBLIC_LOCAL_AUTHENTICATION_KEY not configured');
         return;
       }
       
       setIsLoadingFavorites(true);
-      console.log('Loading favorites with key:', userId);
+      console.log('[Favorites] Making API request with userId:', userId);
+      console.log('[Favorites] Server URL:', process.env.NEXT_PUBLIC_SERVER_URL);
       
       try {
         const api = new Sdk({
@@ -225,39 +231,100 @@ function NavigationContent() {
           { userId: userId }
         );
         
-        console.log('Load favorites response:', response.data);
+        console.log('[Favorites] Raw API response:', response);
+        console.log('[Favorites] Response data:', response.data);
+        console.log('[Favorites] Response data type:', typeof response.data);
+        console.log('[Favorites] placeIds:', response.data?.placeIds);
+        console.log('[Favorites] placeIds type:', typeof response.data?.placeIds);
+        console.log('[Favorites] placeIds is array:', Array.isArray(response.data?.placeIds));
         
         if (response.data?.placeIds && Array.isArray(response.data.placeIds)) {
-          let placeIdsArray = response.data.placeIds;
+          const placeIdsArray = response.data.placeIds;
+          console.log('[Favorites] placeIdsArray length:', placeIdsArray.length);
+          console.log('[Favorites] placeIdsArray contents:', placeIdsArray);
           
-          // If the backend stored comma-separated JSON objects as a single string,
-          // we need to split it first
-          if (placeIdsArray.length === 1 && placeIdsArray[0].includes('},{')) {
-            console.log('Splitting comma-separated favorites string');
-            // Split by '}, ' and add back the closing braces
-            placeIdsArray = placeIdsArray[0].split('}, ').map((str, idx, arr) => {
-              // Add back closing brace for all but the last element
-              return idx < arr.length - 1 ? str + '}' : str;
-            });
-            console.log('Split into', placeIdsArray.length, 'parts');
+          let loadedFavorites: FavoriteLocation[] = [];
+          
+          // Check if the data is in new format (JSON array string as single element)
+          if (placeIdsArray.length === 1 && placeIdsArray[0].startsWith('[')) {
+            console.log('[Favorites] Detected new JSON array format');
+            try {
+              loadedFavorites = JSON.parse(placeIdsArray[0]) as FavoriteLocation[];
+              console.log('[Favorites] Parsed JSON array:', loadedFavorites);
+            } catch (error) {
+              console.error('[Favorites] Failed to parse JSON array:', error);
+            }
+          }
+          // Check if the data was split by commas (old broken format)
+          // The array will have fragments like '{"id":"...' and '"name":"...' etc.
+          else if (placeIdsArray.length > 1 && placeIdsArray[0].includes('{"id"')) {
+            console.log('[Favorites] Detected fragmented format, reconstructing...');
+            // Reconstruct by joining all fragments back together
+            const reconstructed = placeIdsArray.join(',');
+            console.log('[Favorites] Reconstructed string:', reconstructed);
+            
+            // Wrap in array brackets if not already
+            const jsonArrayStr = reconstructed.startsWith('[') ? reconstructed : `[${reconstructed}]`;
+            console.log('[Favorites] JSON array string:', jsonArrayStr);
+            
+            try {
+              loadedFavorites = JSON.parse(jsonArrayStr) as FavoriteLocation[];
+              console.log('[Favorites] Parsed reconstructed array:', loadedFavorites);
+            } catch (error) {
+              console.error('[Favorites] Failed to parse reconstructed array:', error);
+            }
+          }
+          // Try parsing each element as individual JSON objects (old format with proper objects)
+          else {
+            console.log('[Favorites] Trying to parse individual JSON objects...');
+            loadedFavorites = placeIdsArray
+              .map((placeIdStr: string, index: number) => {
+                try {
+                  const trimmed = placeIdStr.trim();
+                  const parsed = JSON.parse(trimmed);
+                  console.log(`[Favorites] Item ${index} parsed:`, parsed);
+                  
+                  const lat = typeof parsed.lat === 'string' ? parseFloat(parsed.lat) : parsed.lat;
+                  const lng = typeof parsed.lng === 'string' ? parseFloat(parsed.lng) : parsed.lng;
+                  
+                  if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
+                    console.warn(`[Favorites] Item ${index} has invalid coordinates, skipping`);
+                    return null;
+                  }
+                  
+                  return {
+                    id: parsed.id || `fav-${Date.now()}-${Math.random()}`,
+                    name: parsed.name || 'Unknown Location',
+                    address: parsed.address || '',
+                    lat,
+                    lng,
+                  } as FavoriteLocation;
+                } catch (error) {
+                  console.error(`[Favorites] Item ${index} parse error:`, error);
+                  return null;
+                }
+              })
+              .filter((fav): fav is FavoriteLocation => fav !== null);
           }
           
-          // Parse each placeId string as a JSON object
-          const loadedFavorites: FavoriteLocation[] = placeIdsArray
-            .map((placeIdStr: string) => {
-              try {
-                const trimmed = placeIdStr.trim();
-                console.log('Parsing favorite string:', trimmed.substring(0, 50) + '...');
-                return JSON.parse(trimmed) as FavoriteLocation;
-              } catch (error) {
-                console.error('Failed to parse favorite:', placeIdStr, error);
-                return null;
-              }
+          // Validate and normalize all loaded favorites
+          loadedFavorites = loadedFavorites
+            .filter(fav => {
+              const lat = typeof fav.lat === 'string' ? parseFloat(fav.lat) : fav.lat;
+              const lng = typeof fav.lng === 'string' ? parseFloat(fav.lng) : fav.lng;
+              return typeof lat === 'number' && typeof lng === 'number' && !Number.isNaN(lat) && !Number.isNaN(lng);
             })
-            .filter((fav): fav is FavoriteLocation => fav !== null);
+            .map(fav => ({
+              ...fav,
+              lat: typeof fav.lat === 'string' ? parseFloat(fav.lat) : fav.lat,
+              lng: typeof fav.lng === 'string' ? parseFloat(fav.lng) : fav.lng,
+            }));
           
+          console.log('[Favorites] Final loaded favorites count:', loadedFavorites.length);
+          console.log('[Favorites] Final loaded favorites:', loadedFavorites);
           setFavorites(loadedFavorites);
-          console.log('Loaded', loadedFavorites.length, 'favorites:', loadedFavorites);
+        } else {
+          console.log('[Favorites] No placeIds in response or not an array');
         }
       } catch (error) {
         console.error('Failed to load favorites:', error);
@@ -288,13 +355,11 @@ function NavigationContent() {
           }),
         });
 
-        // Convert favorites to JSON strings for the API
-        const placeIdsString = favorites
-          .map(fav => JSON.stringify(fav))
-          .join(', ');
+        // Convert favorites to a JSON array string - this ensures commas in addresses don't break parsing
+        const placeIdsString = JSON.stringify(favorites);
         
-        console.log('Saving favorites as string:', placeIdsString.substring(0, 100) + '...');
-        console.log('Saving', favorites.length, 'favorites');
+        console.log('[Favorites] Saving as JSON array:', placeIdsString.substring(0, 100) + '...');
+        console.log('[Favorites] Saving', favorites.length, 'favorites');
         
         await api.favorites.favoriteControllerUpdateFavorites({
           userId: userId,
@@ -350,10 +415,19 @@ function NavigationContent() {
       }
 
       const coordinates: number[][] = (routeData.data.geometry as any).coordinates || [];
-      const waypoints: LatLngType[] = coordinates.map((coord: number[]) => {
-        const [lng, lat] = coord;
-        return new LatLng(lat, lng);
-      });
+      const waypoints: LatLngType[] = coordinates
+        .filter((coord: number[]) => 
+          Array.isArray(coord) && 
+          coord.length >= 2 && 
+          typeof coord[0] === 'number' && 
+          typeof coord[1] === 'number' &&
+          !Number.isNaN(coord[0]) && 
+          !Number.isNaN(coord[1])
+        )
+        .map((coord: number[]) => {
+          const [lng, lat] = coord;
+          return new LatLng(lat, lng);
+        });
 
       // Update total distance and duration
       const distanceKm = (routeData.data.distance / 1000).toFixed(1);
